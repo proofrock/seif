@@ -1,5 +1,5 @@
-# docker buildx build --no-cache -t germanorizzo/gersuite:seif . --push
-# docker run --rm -i -p 12321:12321 -v seif:/data germanorizzo/gersuite:seif
+# docker buildx build --no-cache -t germanorizzo/seif:v0.0.1 . --push
+# docker run --rm -i -p 12321:12321 -v seif:/data germanorizzo/seif:v0.0.1
 
 FROM node:latest as build
 
