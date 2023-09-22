@@ -3,7 +3,9 @@ storedStatements:
     # 10 random HEX digits = 2^40 possible values
     sql: INSERT INTO SECRETS(ID, IV, SECRET, SHA, EXPIRY, TS) VALUES (LOWER(SUBSTRING(PRINTF('%X', RANDOM()), 1, 10)), :iv, :secret, :sha, :expiry, CURRENT_TIMESTAMP) RETURNING ID
   - id: S2
-    sql: DELETE FROM SECRETS WHERE ID = :token RETURNING IV, SECRET, SHA
+    sql: SELECT 1 FROM SECRETS WHERE ID = :id
+  - id: S3
+    sql: DELETE FROM SECRETS WHERE ID = :id RETURNING IV, SECRET, SHA
 useOnlyStoredStatements: true
 macros:
   - id: INIT

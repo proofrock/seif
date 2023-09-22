@@ -1,8 +1,7 @@
 <script>
   import ClipboardableField from "./ClipboardableField.svelte";
-  import { CALL, DECRYPT, ENCRYPT, ERROR } from "./Utils.svelte";
+  import { CALL, DECRYPT, ENCRYPT, ERROR, TOAST } from "./Utils.svelte";
   import { onMount } from "svelte";
-  import Swal from "sweetalert2";
 
   $: token = "";
   $: contents = "";
@@ -66,8 +65,25 @@
       link = linkNoKey + "&s=" + encodeURIComponent(encoded.key);
       linkSecret = encoded.key;
     } else {
-      ERROR(JSON.stringify(ret));
+      await ERROR(JSON.stringify(ret));
     }
+  }
+
+  async function peek() {
+    const req = {
+      transaction: [
+        {
+          query: "^S2",
+          values: { id: token },
+        },
+      ],
+    };
+
+    const ret = await CALL(req);
+    if (ret.status != 200) await ERROR(JSON.stringify(ret));
+    else if (ret.results[0].resultSet.length == 0)
+      await TOAST("Secret expired, already revealed or wrong link.");
+    else await TOAST("Secret (still) available.");
   }
 
   async function reveal() {
@@ -79,20 +95,20 @@
     const req = {
       transaction: [
         {
-          query: "^S2",
-          values: { token },
+          query: "^S3",
+          values: { id: token },
         },
       ],
     };
 
     const ret = await CALL(req);
     if (ret.status != 200) {
-      ERROR(JSON.stringify(ret));
+      await ERROR(JSON.stringify(ret));
       return;
     }
 
     if (ret.results[0].resultSet.length == 0) {
-      ERROR("Secret expired, already revealed or wrong link.");
+      await ERROR("Secret expired, already revealed or wrong link.");
       return;
     }
 
@@ -105,7 +121,7 @@
     try {
       contents = DECRYPT(encoded);
     } catch (e) {
-      ERROR(e);
+      await ERROR(e);
     }
   }
 </script>
@@ -186,7 +202,12 @@
             >
           </p>
         {/if}
-      {:else if contents == ""}<button
+      {:else if contents == ""}
+        <button type="button" class="btn btn-warning" id="peek" on:click={peek}
+          >Is the secret still available?</button
+        >
+        <div>&nbsp;</div>
+        <button
           type="button"
           class="btn btn-success"
           id="reveal"
