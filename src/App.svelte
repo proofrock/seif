@@ -131,7 +131,7 @@
     <div class="navbar-brand bg-success text-white">
       🔐 Seif
       <span class="small"
-        ><small><small>&nbsp;one time secrets storage - v0.0.1</small></small
+        ><small><small>&nbsp;one time secrets storage - v0.0.2</small></small
         ></span
       >
     </div>
