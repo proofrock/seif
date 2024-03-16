@@ -21,4 +21,8 @@ FROM gcr.io/distroless/static-debian12
 
 COPY --from=build-be /go/src/app/bin/seif /
 
+RUN mkdir /data
+
+EXPOSE 34543
+
 ENTRYPOINT ["/seif", "--db", "/data/seif.db"]
