@@ -1,19 +1,24 @@
 # docker buildx build --no-cache -t germanorizzo/seif:v0.0.2 . --push
 # docker run --rm -i -p 12321:12321 -v seif:/data germanorizzo/seif:v0.0.2
 
-FROM node:latest as build
+FROM node:latest as build-fe
 
 WORKDIR /app
 COPY . .
 
-RUN rm -rf public
-RUN npm install
-RUN npm run build
+RUN make build-frontend
+
+from golang:latest as build-be
+
+WORKDIR /go/src/app
+COPY . .
+COPY --from=build-fe /app/backend/static ./backend/static
+
+RUN make build-backend
 
 # Now copy it into our base image.
-FROM germanorizzo/sqliterg:latest
+FROM gcr.io/distroless/static-debian12
 
-COPY --from=build /app/dist /public
-COPY --from=build /app/seif.yaml /seif.yaml
+COPY --from=build-be /go/src/app/bin/seif /
 
-ENTRYPOINT ["/sqliterg", "--db", "/data/seif.db::/seif.yaml", "--serve-dir", "/public", "--index-file", "index.html"]
+ENTRYPOINT ["/seif", "--db", "/data/seif.db"]
