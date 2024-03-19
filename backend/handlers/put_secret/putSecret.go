@@ -19,11 +19,9 @@
 package put_secret
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
+	"seif/crypton"
 	"seif/db_ops"
-	"seif/handlers/get_secret"
 	"seif/params"
 	"seif/utils"
 
@@ -31,35 +29,18 @@ import (
 )
 
 type request struct {
-	get_secret.Secret
-	Expiry int `json:"expiry"`
+	Secret string `json:"secret"`
+	Expiry int    `json:"expiry"`
 }
 
 type response struct {
-	Id string `json:"id"`
+	Id  string `json:"id"`
+	Key string `json:"key"`
 }
 
 const SQL = `
-	INSERT INTO SECRETS (ID, IV, SECRET, SHA, EXPIRY, TS)
-	VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-	RETURNING ID`
-
-// generateRandomBase64 generates a 42-bit random value encoded in base64.
-func generate42bitRandomBase64() (string, error) {
-	// 42 bits = 5.25 bytes, but we need a whole number of bytes
-	b := make([]byte, 6) // Using 6 bytes (48 bits) to have a whole number greater than 42 bits
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	// Mask the last 6 bits of the last byte to zero to ensure only 42 bits are random
-	b[5] &= 0xC0 // 0xC0 is 11000000 in binary, which sets the last 6 bits to zero
-
-	// Encode to base64
-	encoded := base64.URLEncoding.EncodeToString(b)
-	// Trim the result to the correct length: 7 characters for 42 bits
-	return encoded[:7], nil
-}
+	INSERT INTO SECRETS (ID, SECRET, EXPIRY, TS)
+	VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`
 
 func PutSecret(c *fiber.Ctx) error {
 	req := new(request)
@@ -67,7 +48,7 @@ func PutSecret(c *fiber.Ctx) error {
 		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE004, "body", &err)
 	}
 
-	if len(req.Sec) > params.MaxBytes {
+	if len(req.Secret) > params.MaxBytes {
 		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE005, "", nil)
 	}
 
@@ -75,20 +56,22 @@ func PutSecret(c *fiber.Ctx) error {
 		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE006, fmt.Sprint(params.MaxDays), nil)
 	}
 
-	id, err := generate42bitRandomBase64()
+	id, key, crypto, err := crypton.Encode(req.Secret)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE007, "", &err)
+		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE007, "", &err)
 	}
+
+	ret := response{Id: crypton.Bs2str(id), Key: crypton.Bs2str(key)}
 
 	defer func() { go db_ops.Backup() }()
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 
-	_, err = params.Db.Exec(SQL, id, req.IV, req.Sec, req.SHA, req.Expiry)
+	_, err = params.Db.Exec(SQL, ret.Id, crypto, req.Expiry)
 	if err != nil {
 		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE002, "secrets", &err)
 	}
 
-	c.JSON(response{Id: id})
+	c.JSON(ret)
 	return c.SendStatus(fiber.StatusOK)
 }

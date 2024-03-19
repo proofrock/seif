@@ -19,6 +19,8 @@
 package get_secret
 
 import (
+	"context"
+	"seif/crypton"
 	"seif/db_ops"
 	"seif/params"
 	"seif/utils"
@@ -26,20 +28,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type Secret struct {
-	IV  string `json:"iv"`
-	Sec string `json:"secret"`
-	SHA string `json:"sha"`
-}
-
 type response struct {
-	Secret *Secret `json:"secret"`
+	Secret *string `json:"secret"`
 }
 
-const SQL = "DELETE FROM SECRETS WHERE ID = $1 RETURNING IV, SECRET, SHA"
+const SQL1 = "SELECT SECRET FROM SECRETS WHERE ID = $1"
+const SQL2 = "DELETE FROM SECRETS WHERE ID = $1"
 
 func GetSecret(c *fiber.Ctx) error {
 	id := c.Query("id", "")
+	idBs, err := crypton.Str2bs(id)
+	if err != nil {
+		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE004, "id", &err)
+	}
+
+	key := c.Query("key", "")
+	keyBs, err := crypton.Str2bs(key)
+	if err != nil {
+		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE004, "key", &err)
+	}
 
 	defer func() { go db_ops.Backup() }()
 	params.Lock.Lock()
@@ -47,21 +54,44 @@ func GetSecret(c *fiber.Ctx) error {
 
 	ret := response{}
 
-	rows, err := params.Db.Query(SQL, id)
+	tx, err := params.Db.BeginTx(context.Background(), nil)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE002, "secret", &err)
+		return utils.SendError(c, fiber.StatusInternalServerError, "FHE007", "", &err)
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query(SQL1, id)
+	if err != nil {
+		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE001, "secret", &err)
 	}
 	defer rows.Close()
 	if rows.Next() {
-		var secret Secret
-		err = rows.Scan(&secret.IV, &secret.Sec, &secret.SHA)
+		var secret []byte
+		err = rows.Scan(&secret)
 		if err != nil {
 			return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE001, "secret", &err)
 		}
-		ret.Secret = &secret
+
+		plaintxt, err := crypton.Decode(idBs, keyBs, secret)
+		if err != nil {
+			return utils.SendError(c, fiber.StatusBadRequest, utils.FHE008, "decryption", &err)
+		}
+
+		ret.Secret = &plaintxt
 	}
 	if err = rows.Err(); err != nil {
 		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE003, "secret", &err)
+	}
+
+	if ret.Secret != nil {
+		_, err := tx.Exec(SQL2, id)
+		if err != nil {
+			return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE009, "secret", &err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE009, "transaction", &err)
 	}
 
 	c.JSON(ret)

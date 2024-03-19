@@ -18,7 +18,7 @@
    * along with Seif.  If not, see <http://www.gnu.org/licenses/>.
    */
   import ClipboardableField from "./ClipboardableField.svelte";
-  import { CALL, DECRYPT, ENCRYPT, ERROR, TOAST } from "./Utils.svelte";
+  import { CALL, ERROR, TOAST } from "./Utils.svelte";
   import { onMount } from "svelte";
 
   $: initData = null;
@@ -64,12 +64,8 @@
       return;
     }
 
-    const encoded = ENCRYPT(contents);
-
     const obj = {
-      iv: encoded.iv,
-      secret: encoded.text,
-      sha: encoded.sha,
+      secret: contents,
       expiry: expiryDays,
     };
     const ret = await CALL("putSecret", "PUT", obj);
@@ -77,8 +73,8 @@
       await ERROR(`Saving failed. ${ret.message}.`);
     } else {
       linkNoKey = `${location.protocol}//${location.host}?t=${ret.payload.id}`;
-      link = `${linkNoKey}&s=${encodeURIComponent(encoded.key)}`;
-      linkSecret = encoded.key;
+      link = `${linkNoKey}&s=${encodeURIComponent(ret.payload.key)}`;
+      linkSecret = ret.payload.key;
     }
   }
 
@@ -99,23 +95,13 @@
       key = prompt("Decoding key").trim();
     }
 
-    const ret = await CALL("getSecret", "DELETE", null, { id: token });
+    const ret = await CALL("getSecret", "DELETE", null, { id: token, key });
     if (ret.isErr) {
       await ERROR(`Secret retrieval failed. ${ret.message}.`);
     } else if (ret.payload.secret === null) {
       await TOAST("Secret expired, already revealed or wrong link.");
     } else {
-      const encoded = {
-        key,
-        iv: ret.payload.secret.iv,
-        text: ret.payload.secret.secret,
-        sha: ret.payload.secret.sha,
-      };
-      try {
-        contents = DECRYPT(encoded);
-      } catch (e) {
-        await ERROR(e);
-      }
+      contents = ret.payload.secret;
     }
   }
 </script>
