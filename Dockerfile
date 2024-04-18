@@ -14,10 +14,10 @@ WORKDIR /go/src/app
 COPY . .
 COPY --from=build-fe /app/backend/static ./backend/static
 
-RUN make build-backend
+RUN make build-backend-nostatic
 
 # Now copy it into our base image.
-FROM debian:stable
+FROM debian:stable-slim
 
 COPY --from=build-be /go/src/app/bin/seif /
 

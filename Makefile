@@ -5,6 +5,10 @@ build-backend:
 	mkdir -p bin
 	cd backend && CGO_ENABLED=0 go build -a -tags netgo,osusergo -ldflags '-w -extldflags "-static"' -trimpath -o seif && mv seif ../bin
 
+build-backend-nostatic:
+	mkdir -p bin
+	cd backend && CGO_ENABLED=0 go build -trimpath -o seif && mv seif ../bin
+
 build:
 	make build-frontend
 	make build-backend
