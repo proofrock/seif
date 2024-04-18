@@ -17,7 +17,7 @@ COPY --from=build-fe /app/backend/static ./backend/static
 RUN make build-backend
 
 # Now copy it into our base image.
-FROM gcr.io/distroless/static-debian12
+FROM debian:stable
 
 COPY --from=build-be /go/src/app/bin/seif /
 

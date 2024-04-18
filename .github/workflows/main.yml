@@ -6,8 +6,8 @@ on:
       - "*"
 
 env:
-  REGISTRY_IMAGE: germanorizzo/seif
-#  REGISTRY_IMAGE: germanorizzo/seif-test
+#  REGISTRY_IMAGE: germanorizzo/seif
+  REGISTRY_IMAGE: germanorizzo/seif-test
 
 jobs:
   build:
