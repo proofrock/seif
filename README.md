@@ -1,5 +1,5 @@
 # Seif - one time secrets storage
-## v0.0.2
+## v0.2.0
 
 Simple install, with docker:
 
