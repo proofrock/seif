@@ -27,6 +27,7 @@ func Parse() {
 	_db := flag.String("db", "./seif.db", "The path of the sqlite database")
 	_port := flag.Int("port", 34543, "Port")
 	_maxDays := flag.Int("max-days", 3, "Maximum retention days to allow")
+	_defaultDays := flag.Int("default-days", 3, "Default retention days to allow, proposed in GUI")
 	_maxBytes := flag.Int("max-bytes", 1024, "Maximum size, in bytes, of a secret")
 
 	flag.Parse()
@@ -34,5 +35,6 @@ func Parse() {
 	params.DbPath = *_db
 	params.Port = *_port
 	params.MaxDays = *_maxDays
+	params.DefaultDays = min(*_defaultDays, *_maxDays)
 	params.MaxBytes = *_maxBytes
 }

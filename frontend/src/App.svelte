@@ -47,6 +47,7 @@
       await ERROR(`Cannot load init data. ${ret.message}.`);
     } else {
       initData = ret.payload;
+      expiryDays = initData.default_days;
     }
   });
 

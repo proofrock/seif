@@ -25,11 +25,12 @@ import (
 )
 
 type response struct {
-	Version string `json:"version"`
-	MaxDays int    `json:"max_days"`
+	Version     string `json:"version"`
+	MaxDays     int    `json:"max_days"`
+	DefaultDays int    `json:"default_days"`
 }
 
 func GetInitData(c *fiber.Ctx) error {
-	c.JSON(response{Version: params.VERSION, MaxDays: params.MaxDays})
+	c.JSON(response{Version: params.VERSION, MaxDays: params.MaxDays, DefaultDays: params.DefaultDays})
 	return c.SendStatus(fiber.StatusOK)
 }

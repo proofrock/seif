@@ -21,4 +21,5 @@ package params
 var DbPath string
 var Port int
 var MaxDays int
+var DefaultDays int
 var MaxBytes int
