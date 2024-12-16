@@ -3,4 +3,6 @@
 
 Simple install, with docker:
 
-`docker run --rm -i -p 12321:12321 -v seif:/data germanorizzo/seif:latest`
+`docker run --rm -i -p 12321:12321 -v seif:/data ghcr.io/proofrock/seif:latest`
+
+Docker images for AMD64 and AARCH64 are in the 'Packages' section of this repository.
