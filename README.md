@@ -1,6 +1,6 @@
 # Seif - one time secrets storage
 
-## v0.2.1
+## v0.3.0
 
 ```text
 Usage of ./seif:
