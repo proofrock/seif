@@ -1,5 +1,20 @@
 # Seif - one time secrets storage
-## v0.2.0
+
+## v0.2.1
+
+```text
+Usage of ./seif:
+  -db string
+        The path of the sqlite database (default "./seif.db")
+  -default-days int
+        Default retention days to allow, proposed in GUI (default 3)
+  -max-bytes int
+        Maximum size, in bytes, of a secret (default 1024)
+  -max-days int
+        Maximum retention days to allow (default 3)
+  -port int
+        Port (default 34543)
+```
 
 Simple install, with docker:
 
