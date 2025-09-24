@@ -1,4 +1,4 @@
-# Seif - one time secrets storage
+# Seif - one time secrets drop
 
 ## v0.3.0
 

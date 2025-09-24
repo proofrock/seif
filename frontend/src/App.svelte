@@ -114,7 +114,7 @@
         🔐 Seif
         <span class="small"
           ><small
-            ><small>&nbsp;one time secrets storage - {initData.version}</small
+            ><small>&nbsp;one time secrets drop - {initData.version}</small
             ></small
           ></span
         >
