@@ -19,8 +19,7 @@
      */
     import { TOAST } from "./Utils.svelte";
 
-    export let text;
-    export let id;
+    let { text, id } = $props();
 
     async function copy() {
         navigator.clipboard.writeText(text);
@@ -32,8 +31,8 @@
     <span
         class="input-group-text"
         id="basic-addon1"
-        on:click={copy}
-        on:keypress={copy}
+        onclick={copy}
+        onkeypress={copy}
         role="button"
         tabindex="0"
     >

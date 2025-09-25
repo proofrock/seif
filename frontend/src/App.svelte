@@ -21,13 +21,13 @@
   import { CALL, ERROR, TOAST } from "./Utils.svelte";
   import { onMount } from "svelte";
 
-  $: initData = null;
-  $: token = "";
-  $: contents = "";
-  $: link = "";
-  $: linkNoKey = "";
-  $: linkSecret = "";
-  $: expiryDays = 3;
+  let initData = $state(null);
+  let token = $state("");
+  let contents = $state("");
+  let link = $state("");
+  let linkNoKey = $state("");
+  let linkSecret = $state("");
+  let expiryDays = $state(3);
 
   function getParameterByName(name, url = window.location.href) {
     name = name.replace(/[\[\]]/g, "\\$&");
@@ -161,7 +161,7 @@
               id="secretPlace"
               style="height: 300px; font-family: monospace;"
               bind:value={contents}
-            />
+            ></textarea>
             <div>&nbsp;</div>
             <div class="input-group">
               <div class="input-group-prepend">
@@ -185,7 +185,7 @@
               type="button"
               class="btn btn-success"
               id="process"
-              on:click={send}>Give me the link!</button
+              onclick={send}>Give me the link!</button
             >
           {:else}
             <label for="link" class="form-label"
@@ -212,18 +212,15 @@
             </p>
           {/if}
         {:else if contents == ""}
-          <button
-            type="button"
-            class="btn btn-warning"
-            id="peek"
-            on:click={peek}>Is the secret still available?</button
+          <button type="button" class="btn btn-warning" id="peek" onclick={peek}
+            >Is the secret still available?</button
           >
           <div>&nbsp;</div>
           <button
             type="button"
             class="btn btn-success"
             id="reveal"
-            on:click={reveal}>Reveal the secret - One Time Only!</button
+            onclick={reveal}>Reveal the secret - One Time Only!</button
           >
         {:else}
           <label for="secretRevealed" class="form-label"
@@ -236,7 +233,7 @@
             value={contents}
             readonly
             disabled
-          />{/if}
+          ></textarea>{/if}
       </div>
       <div class="col-xs-1 col-sm-2 col-md-3 col-lg-4">&nbsp;</div>
     </div>
