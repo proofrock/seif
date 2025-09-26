@@ -2,22 +2,45 @@
 
 ## v0.3.0
 
-```text
-Usage of ./seif:
-  -db string
-        The path of the sqlite database (default "./seif.db")
-  -default-days int
-        Default retention days to allow, proposed in GUI (default 3)
-  -max-bytes int
-        Maximum size, in bytes, of a secret (default 1024)
-  -max-days int
-        Maximum retention days to allow (default 3)
-  -port int
-        Port (default 34543)
-```
+Seif provides a simple web interface for creating secure, one-time, time-limited links to share passwords, API keys, or other sensitive data. Once accessed or expired, the secret is permanently deleted.
+
+It's a single executable, Go is used for the server side and Svelte on the frontend.
+
+### Goals
+
+- **One-time access**: Secrets are automatically deleted after being viewed
+- **Time-based expiration**: Configure retention periods (1-N days)
+- **Size limits**: Configurable maximum secret size
+- Strong encryption, **zero trust** security model
+- **Small code** to be able to easily review it
+- **Light** on CPU, memory and bandwidth
+- All the state is in the SQLite database
+
+### Non-goals
+
+- No HTTPS (__DO USE A REVERSE PROXY__)
+- No backup of the database (use cron and any mean, like `sqlite3` cli util)
+
+## Running
+
+The executable is simply ran like `./seif[.exe]`. It's configured via environment variables, to be docker-friendly.
+
+| Variable            | Type   | Meaning                                          | Default     |
+| ------------------- | ------ | ------------------------------------------------ | ----------- |
+| `SEIF_DB`           | string | The path of the sqlite database                  | `./seif.db` |
+| `SEIF_PORT`         | number | Port                                             | `34543`     |
+| `SEIF_MAX_DAYS`     | number | Maximum retention days to allow                  | `3`         |
+| `SEIF_DEFAULT_DAYS` | number | Default retention days to allow, proposed in GUI | `3`         |
+| `SEIF_MAX_BYTES`    | number | Maximum size, in bytes, of a secret              | `1024`      |
+
+## Installing (with Docker)
 
 Simple install, with docker:
 
-`docker run --rm -i -p 12321:12321 -v seif:/data ghcr.io/proofrock/seif:latest`
+`docker run --rm -i --user 1000:1000 -p 34543:34543 -e SEIF_MAX_BYTES=2048 -v seif:/data ghcr.io/proofrock/seif:latest`
 
 Docker images for AMD64 and AARCH64 are in the 'Packages' section of this repository.
+
+Notes when running the docker image:
+- Don't change the port (env var `SEIF_PORT`), unless you know what you're doing. The healthcheck will fail. Use port remapping instead.
+- The `SEIF_DB` env var value is `/data/seif.db` by default in the image; if you change it, also adjust the volume mapping (`/data` in the example above) to suit the new value.
