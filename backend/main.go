@@ -19,7 +19,6 @@
 package main
 
 import (
-	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -34,7 +33,7 @@ import (
 	"seif/params"
 	"seif/utils"
 
-	_ "modernc.org/sqlite"
+	"go.etcd.io/bbolt"
 )
 
 //go:embed static/*
@@ -47,7 +46,7 @@ func main() {
 
 	// FIXME don't open a new connection for each operation
 	var err error
-	params.Db, err = sql.Open("sqlite", params.DbPath)
+	params.Db, err = bbolt.Open(params.DbPath, 0600, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -56,16 +55,6 @@ func main() {
 	// Populates db
 	if dbIsNew {
 		db_ops.InitDb()
-	} else {
-		// check db version
-		row := params.Db.QueryRow("SELECT VERSION FROM VERSION")
-		var dbVersion int
-		if err := row.Scan(&dbVersion); err != nil {
-			panic(err)
-		}
-		if dbVersion != db_ops.DB_VERSION {
-			utils.Abort("DB version is %d but should be %d. Please upgrade the database or the application.", dbVersion, db_ops.DB_VERSION)
-		}
 	}
 
 	// Maintenance

@@ -19,20 +19,19 @@
 package get_secret
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"seif/crypton"
+	"seif/db_ops"
 	"seif/params"
 	"seif/utils"
+
+	"go.etcd.io/bbolt"
 )
 
 type response struct {
 	Secret *string `json:"secret"`
 }
-
-const SQL1 = "SELECT SECRET FROM SECRETS WHERE ID = $1"
-const SQL2 = "DELETE FROM SECRETS WHERE ID = $1"
 
 func GetSecret(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
@@ -59,51 +58,43 @@ func GetSecret(w http.ResponseWriter, r *http.Request) {
 
 	ret := response{}
 
-	tx, err := params.Db.BeginTx(context.Background(), nil)
-	if err != nil {
-		utils.SendError(w, http.StatusInternalServerError, "FHE007", "", &err)
-		return
-	}
-	defer tx.Rollback()
-
-	rows, err := tx.Query(SQL1, id)
-	if err != nil {
-		utils.SendError(w, http.StatusInternalServerError, utils.FHE001, "secret", &err)
-		return
-	}
-	defer rows.Close()
-
-	if rows.Next() {
-		var secret []byte
-		err = rows.Scan(&secret)
-		if err != nil {
-			utils.SendError(w, http.StatusInternalServerError, utils.FHE001, "secret", &err)
-			return
+	err = params.Db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(db_ops.SECRETS_BUCKET)
+		if bucket == nil {
+			return nil // Secret doesn't exist
 		}
 
-		plaintxt, err := crypton.Decode(idBs, keyBs, secret)
+		// Get the secret data
+		secretBytes := bucket.Get([]byte(id))
+		if secretBytes == nil {
+			return nil // Secret doesn't exist
+		}
+
+		// Unmarshal secret data
+		var secretData db_ops.SecretData
+		if err := json.Unmarshal(secretBytes, &secretData); err != nil {
+			return err
+		}
+
+		// Decrypt the secret
+		plaintxt, err := crypton.Decode(idBs, keyBs, secretData.Secret)
 		if err != nil {
-			utils.SendError(w, http.StatusBadRequest, utils.FHE008, "decryption", &err)
-			return
+			return err
 		}
 
 		ret.Secret = &plaintxt
-	}
-	if err = rows.Err(); err != nil {
-		utils.SendError(w, http.StatusInternalServerError, utils.FHE003, "secret", &err)
-		return
-	}
 
-	if ret.Secret != nil {
-		_, err := tx.Exec(SQL2, id)
-		if err != nil {
+		// Delete the secret (one-time use)
+		return bucket.Delete([]byte(id))
+	})
+
+	if err != nil {
+		// Check if it's a decryption error
+		if ret.Secret == nil {
+			utils.SendError(w, http.StatusBadRequest, utils.FHE008, "decryption", &err)
+		} else {
 			utils.SendError(w, http.StatusInternalServerError, utils.FHE009, "secret", &err)
-			return
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		utils.SendError(w, http.StatusInternalServerError, utils.FHE009, "transaction", &err)
 		return
 	}
 

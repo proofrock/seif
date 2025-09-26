@@ -19,23 +19,67 @@
 package db_ops
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"seif/params"
 	"seif/utils"
 	"time"
+
+	"go.etcd.io/bbolt"
 )
 
 const maint_period = 5 // min
 
-const SQL_MAINT = "DELETE FROM SECRETS WHERE TS < DATETIME('now', '-' || EXPIRY || ' days')"
+type SecretData struct {
+	Secret []byte `json:"secret"`
+	Expiry int    `json:"expiry"`
+	TS     int64  `json:"ts"`
+}
 
 func maint(allowToPanic bool) {
 	// Execute non-concurrently
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 
-	if _, err := params.Db.Exec(SQL_MAINT); err != nil {
+	now := time.Now().Unix()
+	var keysToDelete [][]byte
+
+	err := params.Db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(SECRETS_BUCKET)
+		if bucket == nil {
+			return nil
+		}
+
+		// Collect expired keys
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var secretData SecretData
+			if err := json.Unmarshal(v, &secretData); err != nil {
+				continue // Skip malformed data
+			}
+
+			// Check if expired (ts + expiry*days in seconds)
+			expirationTime := secretData.TS + int64(secretData.Expiry*24*60*60)
+			if now > expirationTime {
+				// Copy key since cursor data is only valid during iteration
+				keyCopy := make([]byte, len(k))
+				copy(keyCopy, k)
+				keysToDelete = append(keysToDelete, keyCopy)
+			}
+		}
+
+		// Delete expired keys
+		for _, key := range keysToDelete {
+			if err := bucket.Delete(key); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		if allowToPanic {
 			utils.Abort("in doing cleanup: %s\n", err.Error())
 		} else {
@@ -43,12 +87,8 @@ func maint(allowToPanic bool) {
 		}
 	}
 
-	if _, err := params.Db.Exec("VACUUM"); err != nil {
-		if allowToPanic {
-			utils.Abort("in doing vacuum: %s\n", err.Error())
-		} else {
-			fmt.Fprintf(os.Stderr, "in doing maintenance vacuum: %s\n", err.Error())
-		}
+	if len(keysToDelete) > 0 {
+		fmt.Printf("Cleaned up %d expired secrets\n", len(keysToDelete))
 	}
 }
 

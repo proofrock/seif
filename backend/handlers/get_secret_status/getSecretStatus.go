@@ -21,15 +21,16 @@ package get_secret_status
 import (
 	"encoding/json"
 	"net/http"
+	"seif/db_ops"
 	"seif/params"
 	"seif/utils"
+
+	"go.etcd.io/bbolt"
 )
 
 type response struct {
 	Pristine bool `json:"pristine"`
 }
-
-const SQL_GET_SECRET = "SELECT 1 FROM SECRETS WHERE ID = $1"
 
 func GetSecretStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -42,19 +43,24 @@ func GetSecretStatus(w http.ResponseWriter, r *http.Request) {
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 
-	rows, err := params.Db.Query(SQL_GET_SECRET, id)
+	var exists bool
+	err := params.Db.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(db_ops.SECRETS_BUCKET)
+		if bucket == nil {
+			exists = false
+			return nil
+		}
+
+		value := bucket.Get([]byte(id))
+		exists = (value != nil)
+		return nil
+	})
+
 	if err != nil {
 		utils.SendError(w, http.StatusInternalServerError, utils.FHE001, "secret", &err)
 		return
 	}
-	defer rows.Close()
-
-	ret := rows.Next()
-	if err = rows.Err(); err != nil {
-		utils.SendError(w, http.StatusInternalServerError, utils.FHE003, "secret", &err)
-		return
-	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response{Pristine: ret})
+	json.NewEncoder(w).Encode(response{Pristine: exists})
 }

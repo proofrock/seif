@@ -19,9 +19,10 @@
 package params
 
 import (
-	"database/sql"
 	"fmt"
 	"sync"
+
+	"go.etcd.io/bbolt"
 )
 
 const VERSION = "v0.0.0"
@@ -34,7 +35,7 @@ const banner = `   ____    _ ___
 
 var Lock sync.Mutex
 
-var Db *sql.DB
+var Db *bbolt.DB
 
 func init() {
 	fmt.Println(banner, VERSION)

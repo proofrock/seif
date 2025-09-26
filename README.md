@@ -14,12 +14,12 @@ It's a single executable, Go is used for the server side and Svelte on the front
 - Strong encryption, **zero trust** security model
 - **Small code** to be able to easily review it
 - **Light** on CPU, memory and bandwidth
-- All the state is in the SQLite database
+- All the state is in the database (using `etcd-io/bbolt`)
 
 ### Non-goals
 
 - No HTTPS (__DO USE A REVERSE PROXY__)
-- No backup of the database (use cron and any mean, like `sqlite3` cli util)
+- No backup of the database (use cron and copy the db file)
 
 ## Running
 
@@ -27,7 +27,7 @@ The executable is simply ran like `./seif[.exe]`. It's configured via environmen
 
 | Variable            | Type   | Meaning                                          | Default     |
 | ------------------- | ------ | ------------------------------------------------ | ----------- |
-| `SEIF_DB`           | string | The path of the sqlite database                  | `./seif.db` |
+| `SEIF_DB`           | string | The path of the database                         | `./seif.db` |
 | `SEIF_PORT`         | number | Port                                             | `34543`     |
 | `SEIF_MAX_DAYS`     | number | Maximum retention days to allow                  | `3`         |
 | `SEIF_DEFAULT_DAYS` | number | Default retention days to allow, proposed in GUI | `3`         |

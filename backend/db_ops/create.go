@@ -19,33 +19,63 @@
 package db_ops
 
 import (
-	"fmt"
+	"encoding/binary"
 	"seif/params"
 	"seif/utils"
+
+	"go.etcd.io/bbolt"
 )
 
 const DB_VERSION = 1
 
-const SQL_CREATE = `
- 	CREATE TABLE SECRETS (
-		ID TEXT PRIMARY KEY NOT NULL,
-		SECRET BLOB NOT NULL,
-		EXPIRY INTEGER,
-		TS TEXT
-	)`
-
-var SQL_CREATE_2 = fmt.Sprintf("CREATE VIEW VERSION AS SELECT %d AS VERSION", DB_VERSION)
+var SECRETS_BUCKET = []byte("secrets")
+var VERSION_BUCKET = []byte("version")
 
 func InitDb() {
 	// Execute non-concurrently
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 
-	if _, err := params.Db.Exec(SQL_CREATE); err != nil {
-		utils.Abort("in creating db: %s", err)
-	}
+	err := params.Db.Update(func(tx *bbolt.Tx) error {
+		// Create secrets bucket
+		_, err := tx.CreateBucket(SECRETS_BUCKET)
+		if err != nil {
+			return err
+		}
 
-	if _, err := params.Db.Exec(SQL_CREATE_2); err != nil {
+		// Create version bucket and set version
+		versionBucket, err := tx.CreateBucket(VERSION_BUCKET)
+		if err != nil {
+			return err
+		}
+
+		// Store version as binary
+		versionBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(versionBytes, DB_VERSION)
+		return versionBucket.Put([]byte("version"), versionBytes)
+	})
+
+	if err != nil {
 		utils.Abort("in creating db: %s", err)
 	}
+}
+
+func GetDBVersion() (int, error) {
+	var version int
+	err := params.Db.View(func(tx *bbolt.Tx) error {
+		versionBucket := tx.Bucket(VERSION_BUCKET)
+		if versionBucket == nil {
+			return nil // DB not initialized
+		}
+
+		versionBytes := versionBucket.Get([]byte("version"))
+		if versionBytes == nil {
+			return nil
+		}
+
+		version = int(binary.LittleEndian.Uint32(versionBytes))
+		return nil
+	})
+
+	return version, err
 }

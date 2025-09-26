@@ -23,8 +23,12 @@ import (
 	"fmt"
 	"net/http"
 	"seif/crypton"
+	"seif/db_ops"
 	"seif/params"
 	"seif/utils"
+	"time"
+
+	"go.etcd.io/bbolt"
 )
 
 type request struct {
@@ -36,10 +40,6 @@ type response struct {
 	Id  string `json:"id"`
 	Key string `json:"key"`
 }
-
-const SQL = `
-	INSERT INTO SECRETS (ID, SECRET, EXPIRY, TS)
-	VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`
 
 func PutSecret(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
@@ -71,10 +71,30 @@ func PutSecret(w http.ResponseWriter, r *http.Request) {
 
 	ret := response{Id: crypton.Bs2str(id), Key: crypton.Bs2str(key)}
 
+	// Prepare secret data
+	secretData := db_ops.SecretData{
+		Secret: crypto,
+		Expiry: req.Expiry,
+		TS:     time.Now().Unix(),
+	}
+
+	secretBytes, err := json.Marshal(secretData)
+	if err != nil {
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE007, "marshal", &err)
+		return
+	}
+
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 
-	_, err = params.Db.Exec(SQL, ret.Id, crypto, req.Expiry)
+	err = params.Db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(db_ops.SECRETS_BUCKET)
+		if bucket == nil {
+			return fmt.Errorf("secrets bucket not found")
+		}
+		return bucket.Put([]byte(ret.Id), secretBytes)
+	})
+
 	if err != nil {
 		utils.SendError(w, http.StatusInternalServerError, utils.FHE002, "secrets", &err)
 		return
