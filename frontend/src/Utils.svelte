@@ -90,6 +90,9 @@
 
     import Swal from "sweetalert2";
 
+    // Export Swal for direct use in components
+    export { Swal };
+
     export const TOAST = async function (message) {
         await Swal.fire({
             text: message,

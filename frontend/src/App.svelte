@@ -28,6 +28,8 @@
   let linkNoKey = $state("");
   let linkSecret = $state("");
   let expiryDays = $state(3);
+  let user = $state(null);
+  let isLoggedIn = $state(false);
 
   function getParameterByName(name, url = window.location.href) {
     name = name.replace(/[\[\]]/g, "\\$&");
@@ -48,8 +50,61 @@
     } else {
       initData = ret.payload;
       expiryDays = initData.default_days;
+
+      // Check user authentication if OAuth is enabled
+      if (initData.oauth_enabled) {
+        await checkAuthentication();
+      }
+    }
+
+    // Initialize Bootstrap tooltips
+    if (typeof window !== "undefined" && window.bootstrap) {
+      const tooltipTriggerList = document.querySelectorAll(
+        '[data-bs-toggle="tooltip"]',
+      );
+      tooltipTriggerList.forEach((tooltipTriggerEl) => {
+        new window.bootstrap.Tooltip(tooltipTriggerEl);
+      });
     }
   });
+
+  async function checkAuthentication() {
+    const ret = await CALL("auth/user", "GET");
+    if (!ret.isErr && ret.payload.user) {
+      user = ret.payload.user;
+      isLoggedIn = true;
+
+      // Reinitialize tooltips after login
+      setTimeout(() => {
+        if (typeof window !== "undefined" && window.bootstrap) {
+          const tooltipTriggerList = document.querySelectorAll(
+            '[data-bs-toggle="tooltip"]',
+          );
+          tooltipTriggerList.forEach((tooltipTriggerEl) => {
+            new window.bootstrap.Tooltip(tooltipTriggerEl);
+          });
+        }
+      }, 100);
+    } else {
+      user = null;
+      isLoggedIn = false;
+    }
+  }
+
+  function login() {
+    window.location.href = "/api/auth/login";
+  }
+
+  async function logout() {
+    const ret = await CALL("auth/logout", "POST");
+    if (!ret.isErr) {
+      user = null;
+      isLoggedIn = false;
+      await TOAST("Logged out successfully");
+    } else {
+      await ERROR(`Logout failed. ${ret.message}.`);
+    }
+  }
 
   async function send() {
     if (contents == "") {
@@ -121,7 +176,38 @@
           ></span
         >
       </div>
-      <div>
+      <div class="d-flex align-items-center">
+        {#if initData.oauth_enabled}
+          {#if isLoggedIn && user}
+            <!-- svelte-ignore a11y_invalid_attribute -->
+            <a
+              href="#"
+              style="color: white;"
+              onclick={logout}
+              title="Logout"
+              aria-label="Logout"
+              data-bs-toggle="tooltip"
+              data-bs-placement="bottom"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="currentColor"
+                viewBox="0 0 16 16"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"
+                />
+                <path
+                  fill-rule="evenodd"
+                  d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"
+                />
+              </svg>
+            </a>&nbsp;&nbsp;
+          {/if}
+        {/if}
         <a
           href="https://github.com/proofrock/seif"
           target="_blank"
@@ -152,41 +238,71 @@
       <div class="form col-xs-10 col-sm-8 col-md-6 col-lg-4">
         {#if token == ""}
           {#if link == ""}
-            <p>
-              Input your secret here. It will be encrypted and saved to the
-              server, and an one-time link will be generated.
-            </p>
-            <textarea
-              class="form-control"
-              id="secretPlace"
-              style="height: 300px; font-family: monospace;"
-              bind:value={contents}
-            ></textarea>
-            <div>&nbsp;</div>
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text">Expires after</span>
+            {#if initData.oauth_enabled && !isLoggedIn}
+              <div class="text-center py-5">
+                <div class="mb-4">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="64"
+                    height="64"
+                    fill="currentColor"
+                    class="text-muted"
+                    viewBox="0 0 16 16"
+                  >
+                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                  </svg>
+                </div>
+                <h5 class="text-muted mb-3">Authentication Required</h5>
+                <p class="lead text-muted">
+                  Please
+                  <button
+                    type="button"
+                    onclick={login}
+                    class="btn btn-link p-0 fw-bold text-decoration-none"
+                    style="color: #667eea; vertical-align: baseline;"
+                  >
+                    login
+                  </button>
+                  to create secrets.
+                </p>
               </div>
-              <input
-                type="number"
+            {:else}
+              <p>
+                Input your secret here. It will be encrypted and saved to the
+                server, and an one-time link will be generated.
+              </p>
+              <textarea
                 class="form-control"
-                aria-label="Default"
-                aria-describedby="inputGroup-sizing-default"
-                bind:value={expiryDays}
-                min="1"
-                max={initData.max_days}
-              />
-              <div class="input-group-append">
-                <span class="input-group-text">days</span>
+                id="secretPlace"
+                style="height: 300px; font-family: monospace;"
+                bind:value={contents}
+              ></textarea>
+              <div>&nbsp;</div>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text">Expires after</span>
+                </div>
+                <input
+                  type="number"
+                  class="form-control"
+                  aria-label="Default"
+                  aria-describedby="inputGroup-sizing-default"
+                  bind:value={expiryDays}
+                  min="1"
+                  max={initData.max_days}
+                />
+                <div class="input-group-append">
+                  <span class="input-group-text">days</span>
+                </div>
               </div>
-            </div>
-            <div>&nbsp;</div>
-            <button
-              type="button"
-              class="btn btn-success"
-              id="process"
-              onclick={send}>Give me the link!</button
-            >
+              <div>&nbsp;</div>
+              <button
+                type="button"
+                class="btn btn-success"
+                id="process"
+                onclick={send}>Give me the link!</button
+              >
+            {/if}
           {:else}
             <label for="link" class="form-label"
               >Success! Your one-time link is:</label

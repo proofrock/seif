@@ -9,9 +9,10 @@ It's a single executable, Go is used for the server side and Svelte on the front
 ### Goals
 
 - **One-time access**: Secrets are automatically deleted after being viewed
+- Strong encryption, **zero trust** security model
+- **OAUTH2 support** for authentication - auth users can create secrets, anyone with the link can read them
 - **Time-based expiration**: Configure retention periods (1-N days)
 - **Size limits**: Configurable maximum secret size
-- Strong encryption, **zero trust** security model
 - **Small code** to be able to easily review it
 - **Light** on CPU, memory and bandwidth
 - All the state is in the database (using `etcd-io/bbolt`)
@@ -20,18 +21,64 @@ It's a single executable, Go is used for the server side and Svelte on the front
 
 - No HTTPS (__DO USE A REVERSE PROXY__)
 - No backup of the database (use cron and copy the db file)
+- No rate limiting (best done via reverse proxy)
+- Logged in sessions won't survive restarts
 
 ## Running
 
 The executable is simply ran like `./seif[.exe]`. It's configured via environment variables, to be docker-friendly.
 
-| Variable            | Type   | Meaning                                          | Default     |
-| ------------------- | ------ | ------------------------------------------------ | ----------- |
-| `SEIF_DB`           | string | The path of the database                         | `./seif.db` |
-| `SEIF_PORT`         | number | Port                                             | `34543`     |
-| `SEIF_MAX_DAYS`     | number | Maximum retention days to allow                  | `3`         |
-| `SEIF_DEFAULT_DAYS` | number | Default retention days to allow, proposed in GUI | `3`         |
-| `SEIF_MAX_BYTES`    | number | Maximum size, in bytes, of a secret              | `1024`      |
+| Variable             | Type   | Meaning                                                      | Default     |
+| -------------------- | ------ | ------------------------------------------------------------ | ----------- |
+| `SEIF_DB`            | string | The path of the database                                     | `./seif.db` |
+| `SEIF_PORT`          | number | Port                                                         | `34543`     |
+| `SEIF_MAX_DAYS`      | number | Maximum retention days to allow                              | `3`         |
+| `SEIF_DEFAULT_DAYS`  | number | Default retention days to allow, proposed in GUI             | `3`         |
+| `SEIF_MAX_BYTES`     | number | Maximum size, in bytes, of a secret                          | `1024`      |
+| `SEIF_OAUTH_ENABLED` | bool   | Enable OAuth2 authentication for secret creation (see below) | `false`     |
+
+### OAuth2 Authentication (Optional)
+
+Seif can optionally require OAuth2 authentication for creating secrets, while keeping secret retrieval publicly accessible. This is useful for organizations that want to control who can create secrets but still allow easy sharing.
+
+When OAuth2 is enabled:
+- **Secret creation** requires authentication
+- **Secret retrieval** remains public (no authentication needed)
+- **Secret status checking** remains public
+
+OAuth2 works with any OpenID Connect-compatible provider (PocketID, Keycloak, Auth0, Okta, etc.).
+
+| Variable                     | Type   | Meaning                                                           | Default                |
+| ---------------------------- | ------ | ----------------------------------------------------------------- | ---------------------- |
+| `SEIF_OAUTH_ENABLED`         | bool   | Enable OAuth2 authentication for secret creation                  | `false`                |
+| `SEIF_OAUTH_CLIENT_ID`       | string | OAuth2 client ID from your provider                               | -                      |
+| `SEIF_OAUTH_CLIENT_SECRET`   | string | OAuth2 client secret from your provider                           | -                      |
+| `SEIF_OAUTH_REDIRECT_URI`    | string | OAuth2 callback URL (`http://host:port/api/auth/callback`)        | -                      |
+| `SEIF_OAUTH_AUTH_URL`        | string | OAuth2 authorization endpoint                                     | -                      |
+| `SEIF_OAUTH_TOKEN_URL`       | string | OAuth2 token endpoint                                             | -                      |
+| `SEIF_OAUTH_USERINFO_URL`    | string | OAuth2 user info endpoint                                         | -                      |
+| `SEIF_OAUTH_SCOPES`          | string | OAuth2 scopes (space-separated)                                   | `openid email profile` |
+| `SEIF_OAUTH_EMAIL_WHITELIST` | string | Comma-separated list of allowed email addresses (empty=allow all) | -                      |
+
+### OAuth2 Configuration Example
+
+To enable OAuth2 authentication with PocketID:
+
+```bash
+export SEIF_OAUTH_ENABLED=true
+export SEIF_OAUTH_CLIENT_ID=your_client_id
+export SEIF_OAUTH_CLIENT_SECRET=your_client_secret
+export SEIF_OAUTH_REDIRECT_URI=http://localhost:34543/api/auth/callback
+export SEIF_OAUTH_AUTH_URL=https://pocketid.io/oauth/authorize
+export SEIF_OAUTH_TOKEN_URL=https://pocketid.io/oauth/token
+export SEIF_OAUTH_USERINFO_URL=https://pocketid.io/oauth/userinfo
+export SEIF_OAUTH_EMAIL_WHITELIST="admin@company.com,user@company.com"
+./seif
+```
+
+**Important**:
+- Register the callback URL (`http://host:port/api/auth/callback`) in your OAuth2 provider's application settings
+- Omit `SEIF_OAUTH_EMAIL_WHITELIST` to allow any authenticated user, or set it to restrict access to specific email addresses
 
 ## Installing (with Docker)
 

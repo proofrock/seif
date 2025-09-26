@@ -1,5 +1,6 @@
 # Mine
 
+seif
 *.db*
 bin/
 test/
