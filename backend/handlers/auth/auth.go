@@ -28,7 +28,12 @@ import (
 	"time"
 )
 
-var stateStore = make(map[string]time.Time)
+type StateData struct {
+	Expiry       time.Time
+	CodeVerifier string
+}
+
+var stateStore = make(map[string]*StateData)
 
 func Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -47,13 +52,27 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store state with expiration
-	stateStore[state] = time.Now().Add(10 * time.Minute)
+	// Generate PKCE parameters
+	codeVerifier, err := oauth2.GenerateCodeVerifier()
+	if err != nil {
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE007, "code verifier generation", &err)
+		return
+	}
+	codeChallenge := oauth2.GenerateCodeChallenge(codeVerifier)
+
+	// Store state with expiration and code verifier
+	stateStore[state] = &StateData{
+		Expiry:       time.Now().Add(10 * time.Minute),
+		CodeVerifier: codeVerifier,
+	}
 
 	// Clean up expired states
 	cleanupExpiredStates()
 
-	url := oauth2.OAuth2Config.Config.AuthCodeURL(state)
+	// Create authorization URL with PKCE
+	url := oauth2.OAuth2Config.Config.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -87,16 +106,20 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate state
-	if expiry, exists := stateStore[state]; !exists || time.Now().After(expiry) {
+	stateData, exists := stateStore[state]
+	if !exists || time.Now().After(stateData.Expiry) {
 		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "invalid state", nil)
 		return
 	}
 
+	// Get code verifier for PKCE
+	codeVerifier := stateData.CodeVerifier
+
 	// Clean up used state
 	delete(stateStore, state)
 
-	// Exchange code for token
-	token, err := oauth2.OAuth2Config.Config.Exchange(r.Context(), code)
+	// Exchange code for token with PKCE
+	token, err := oauth2.OAuth2Config.Config.Exchange(r.Context(), code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 	if err != nil {
 		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "token exchange", &err)
 		return
@@ -253,8 +276,8 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 
 func cleanupExpiredStates() {
 	now := time.Now()
-	for state, expiry := range stateStore {
-		if now.After(expiry) {
+	for state, stateData := range stateStore {
+		if now.After(stateData.Expiry) {
 			delete(stateStore, state)
 		}
 	}
