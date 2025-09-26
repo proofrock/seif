@@ -26,6 +26,8 @@ import (
 	"seif/oauth2"
 	"seif/utils"
 	"time"
+
+	stdoauth2 "golang.org/x/oauth2"
 )
 
 type StateData struct {
@@ -58,7 +60,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		utils.SendError(w, http.StatusInternalServerError, utils.FHE007, "code verifier generation", &err)
 		return
 	}
-	codeChallenge := oauth2.GenerateCodeChallenge(codeVerifier)
 
 	// Store state with expiration and code verifier
 	stateStore[state] = &StateData{
@@ -70,9 +71,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	cleanupExpiredStates()
 
 	// Create authorization URL with PKCE
-	url := oauth2.OAuth2Config.Config.AuthCodeURL(state,
-		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
+	url := oauth2.OAuth2Config.Config.AuthCodeURL(state, stdoauth2.S256ChallengeOption(codeVerifier))
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -119,7 +118,7 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 	delete(stateStore, state)
 
 	// Exchange code for token with PKCE
-	token, err := oauth2.OAuth2Config.Config.Exchange(r.Context(), code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
+	token, err := oauth2.OAuth2Config.Config.Exchange(r.Context(), code, stdoauth2.VerifierOption(codeVerifier))
 	if err != nil {
 		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "token exchange", &err)
 		return

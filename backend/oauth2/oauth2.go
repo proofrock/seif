@@ -21,7 +21,6 @@ package oauth2
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -152,17 +151,7 @@ func GenerateStateToken() (string, error) {
 }
 
 func GenerateCodeVerifier() (string, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil
-}
-
-func GenerateCodeChallenge(verifier string) string {
-	hash := sha256.Sum256([]byte(verifier))
-	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(hash[:])
+	return oauth2.GenerateVerifier(), nil
 }
 
 func GetUserInfo(ctx context.Context, token *oauth2.Token) (*UserInfo, error) {
