@@ -26,11 +26,13 @@ import (
 	"net/http"
 	"seif/db_ops"
 	"seif/flags"
+	"seif/handlers/auth"
 	"seif/handlers/get_init_data"
 	"seif/handlers/get_secret"
 	"seif/handlers/get_secret_status"
 	"seif/handlers/ping"
 	"seif/handlers/put_secret"
+	"seif/middleware"
 	"seif/params"
 	"seif/utils"
 
@@ -73,7 +75,13 @@ func main() {
 	mux.HandleFunc("/api/getInitData", get_init_data.GetInitData)
 	mux.HandleFunc("/api/getSecret", get_secret.GetSecret)
 	mux.HandleFunc("/api/getSecretStatus", get_secret_status.GetSecretStatus)
-	mux.HandleFunc("/api/putSecret", put_secret.PutSecret)
+	mux.HandleFunc("/api/putSecret", middleware.RequireAuth(put_secret.PutSecret))
+
+	// OAuth2 routes
+	mux.HandleFunc("/api/auth/login", auth.Login)
+	mux.HandleFunc("/api/auth/callback", auth.Callback)
+	mux.HandleFunc("/api/auth/logout", auth.Logout)
+	mux.HandleFunc("/api/auth/user", auth.GetUser)
 
 	// Create server with custom header
 	server := &http.Server{
