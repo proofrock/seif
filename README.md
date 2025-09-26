@@ -1,6 +1,6 @@
 # Seif - one time secrets drop
 
-## v0.3.0
+## v0.4.0
 
 Seif provides a simple web interface for creating secure, one-time, time-limited links to share passwords, API keys, or other sensitive data. Once accessed or expired, the secret is permanently deleted.
 
