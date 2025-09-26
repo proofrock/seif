@@ -70,6 +70,21 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 
 	state := r.URL.Query().Get("state")
 	code := r.URL.Query().Get("code")
+	oauthError := r.URL.Query().Get("error")
+	oauthErrorDescription := r.URL.Query().Get("error_description")
+
+	// Check for OAuth error response
+	if oauthError != "" {
+		log.Printf("OAuth2: Error from provider: %s - %s", oauthError, oauthErrorDescription)
+		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "OAuth provider error: "+oauthError, nil)
+		return
+	}
+
+	// Validate required parameters
+	if code == "" {
+		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "missing authorization code", nil)
+		return
+	}
 
 	// Validate state
 	if expiry, exists := stateStore[state]; !exists || time.Now().After(expiry) {
