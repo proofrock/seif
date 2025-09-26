@@ -21,7 +21,6 @@ package put_secret
 import (
 	"fmt"
 	"seif/crypton"
-	"seif/db_ops"
 	"seif/params"
 	"seif/utils"
 
@@ -63,7 +62,6 @@ func PutSecret(c *fiber.Ctx) error {
 
 	ret := response{Id: crypton.Bs2str(id), Key: crypton.Bs2str(key)}
 
-	defer func() { go db_ops.Backup() }()
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 

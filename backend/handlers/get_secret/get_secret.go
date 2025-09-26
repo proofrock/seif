@@ -21,7 +21,6 @@ package get_secret
 import (
 	"context"
 	"seif/crypton"
-	"seif/db_ops"
 	"seif/params"
 	"seif/utils"
 
@@ -48,7 +47,6 @@ func GetSecret(c *fiber.Ctx) error {
 		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE004, "key", &err)
 	}
 
-	defer func() { go db_ops.Backup() }()
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 

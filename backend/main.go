@@ -69,10 +69,6 @@ func main() {
 		if dbVersion != db_ops.DB_VERSION {
 			utils.Abort("DB version is %d but should be %d. Please upgrade the database or the application.", dbVersion, db_ops.DB_VERSION)
 		}
-
-		// Backup
-
-		db_ops.Backup()
 	}
 
 	// Maintenance
