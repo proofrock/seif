@@ -28,6 +28,7 @@ import (
 	"seif/handlers/get_init_data"
 	"seif/handlers/get_secret"
 	"seif/handlers/get_secret_status"
+	"seif/handlers/ping"
 	"seif/handlers/put_secret"
 	"seif/params"
 	"seif/utils"
@@ -89,6 +90,7 @@ func main() {
 		PathPrefix: "static",
 	}))
 
+	app.Get("/api/ping", ping.Ping)
 	app.Get("/api/getInitData", get_init_data.GetInitData)
 	app.Delete("/api/getSecret", get_secret.GetSecret)
 	app.Get("/api/getSecretStatus", get_secret_status.GetSecretStatus)

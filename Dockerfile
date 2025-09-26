@@ -25,4 +25,6 @@ VOLUME /data
 
 EXPOSE 34543
 
-ENTRYPOINT ["/seif", "--db", "/data/seif.db"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl http://localhost:34543/api/ping || exit 1
+
