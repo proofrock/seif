@@ -1,6 +1,6 @@
 # Seif - one time secrets drop
 
-## v0.3.0
+## v0.4.0
 
 Seif provides a simple web interface for creating secure, one-time, time-limited links to share passwords, API keys, or other sensitive data. Once accessed or expired, the secret is permanently deleted.
 
@@ -28,6 +28,15 @@ It's a single executable, Go is used for the server side and Svelte on the front
 
 The executable is simply ran like `./seif[.exe]`. It's configured via environment variables, to be docker-friendly.
 
+| Variable             | Type   | Meaning                                                      | Default     |
+| -------------------- | ------ | ------------------------------------------------------------ | ----------- |
+| `SEIF_DB`            | string | The path of the database                                     | `./seif.db` |
+| `SEIF_PORT`          | number | Port                                                         | `34543`     |
+| `SEIF_MAX_DAYS`      | number | Maximum retention days to allow                              | `3`         |
+| `SEIF_DEFAULT_DAYS`  | number | Default retention days to allow, proposed in GUI             | `3`         |
+| `SEIF_MAX_BYTES`     | number | Maximum size, in bytes, of a secret                          | `1024`      |
+| `SEIF_OAUTH_ENABLED` | bool   | Enable OAuth2 authentication for secret creation (see below) | `false`     |
+
 ### OAuth2 Authentication (Optional)
 
 Seif can optionally require OAuth2 authentication for creating secrets, while keeping secret retrieval publicly accessible. This is useful for organizations that want to control who can create secrets but still allow easy sharing.
@@ -41,15 +50,10 @@ OAuth2 works with any OpenID Connect-compatible provider (PocketID, Keycloak, Au
 
 | Variable                     | Type   | Meaning                                                           | Default                |
 | ---------------------------- | ------ | ----------------------------------------------------------------- | ---------------------- |
-| `SEIF_DB`                    | string | The path of the database                                          | `./seif.db`            |
-| `SEIF_PORT`                  | number | Port                                                              | `34543`                |
-| `SEIF_MAX_DAYS`              | number | Maximum retention days to allow                                   | `3`                    |
-| `SEIF_DEFAULT_DAYS`          | number | Default retention days to allow, proposed in GUI                  | `3`                    |
-| `SEIF_MAX_BYTES`             | number | Maximum size, in bytes, of a secret                               | `1024`                 |
 | `SEIF_OAUTH_ENABLED`         | bool   | Enable OAuth2 authentication for secret creation                  | `false`                |
 | `SEIF_OAUTH_CLIENT_ID`       | string | OAuth2 client ID from your provider                               | -                      |
 | `SEIF_OAUTH_CLIENT_SECRET`   | string | OAuth2 client secret from your provider                           | -                      |
-| `SEIF_OAUTH_REDIRECT_URI`    | string | OAuth2 callback URL                                               | -                      |
+| `SEIF_OAUTH_REDIRECT_URI`    | string | OAuth2 callback URL (`http://host:port/api/auth/callback`)        | -                      |
 | `SEIF_OAUTH_AUTH_URL`        | string | OAuth2 authorization endpoint                                     | -                      |
 | `SEIF_OAUTH_TOKEN_URL`       | string | OAuth2 token endpoint                                             | -                      |
 | `SEIF_OAUTH_USERINFO_URL`    | string | OAuth2 user info endpoint                                         | -                      |
@@ -73,7 +77,7 @@ export SEIF_OAUTH_EMAIL_WHITELIST="admin@company.com,user@company.com"
 ```
 
 **Important**:
-- Register the callback URL (`/api/auth/callback`) in your OAuth2 provider's application settings
+- Register the callback URL (`http://host:port/api/auth/callback`) in your OAuth2 provider's application settings
 - Omit `SEIF_OAUTH_EMAIL_WHITELIST` to allow any authenticated user, or set it to restrict access to specific email addresses
 
 ## Installing (with Docker)
