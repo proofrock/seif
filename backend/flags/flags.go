@@ -20,21 +20,41 @@ package flags
 
 import (
 	"flag"
+	"os"
 	"seif/params"
+	"strconv"
 )
 
 func Parse() {
-	_db := flag.String("db", "./seif.db", "The path of the sqlite database")
-	_port := flag.Int("port", 34543, "Port")
-	_maxDays := flag.Int("max-days", 3, "Maximum retention days to allow")
-	_defaultDays := flag.Int("default-days", 3, "Default retention days to allow, proposed in GUI")
-	_maxBytes := flag.Int("max-bytes", 1024, "Maximum size, in bytes, of a secret")
+	_db := getEnvOrDefault("SEIF_DB", "./seif.db")
+	_port := getEnvIntOrDefault("SEIF_PORT", 34543)
+	_maxDays := getEnvIntOrDefault("SEIF_MAX_DAYS", 3)
+	_defaultDays := getEnvIntOrDefault("SEIF_DEFAULT_DAYS", 3)
+	_maxBytes := getEnvIntOrDefault("SEIF_MAX_BYTES", 1024)
 
 	flag.Parse()
 
-	params.DbPath = *_db
-	params.Port = *_port
-	params.MaxDays = *_maxDays
-	params.DefaultDays = min(*_defaultDays, *_maxDays)
-	params.MaxBytes = *_maxBytes
+	params.DbPath = _db
+	params.Port = _port
+	params.MaxDays = _maxDays
+	params.DefaultDays = min(_defaultDays, _maxDays)
+	params.MaxBytes = _maxBytes
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvIntOrDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		} else {
+			println("FATAL: Env var '", key, "' is not numeric")
+		}
+	}
+	return defaultValue
 }
