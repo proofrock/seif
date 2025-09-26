@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"seif/db_ops"
 	"seif/flags"
@@ -33,9 +34,6 @@ import (
 	"seif/params"
 	"seif/utils"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 	_ "modernc.org/sqlite"
 )
 
@@ -60,7 +58,6 @@ func main() {
 		db_ops.InitDb()
 	} else {
 		// check db version
-
 		row := params.Db.QueryRow("SELECT VERSION FROM VERSION")
 		var dbVersion int
 		if err := row.Scan(&dbVersion); err != nil {
@@ -72,27 +69,39 @@ func main() {
 	}
 
 	// Maintenance
-
 	go db_ops.StartMaint()
 
-	// server
+	// Setup routes
+	mux := http.NewServeMux()
 
-	app := fiber.New(fiber.Config{ServerHeader: "seif v." + params.VERSION, AppName: "seif", DisableStartupMessage: true})
+	// Static files
+	staticFS, _ := fs.Sub(static, "static")
+	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
-	app.Use(recover.New())
+	// API routes
+	mux.HandleFunc("/api/ping", ping.Ping)
+	mux.HandleFunc("/api/getInitData", get_init_data.GetInitData)
+	mux.HandleFunc("/api/getSecret", get_secret.GetSecret)
+	mux.HandleFunc("/api/getSecretStatus", get_secret_status.GetSecretStatus)
+	mux.HandleFunc("/api/putSecret", put_secret.PutSecret)
 
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:       http.FS(static),
-		PathPrefix: "static",
-	}))
-
-	app.Get("/api/ping", ping.Ping)
-	app.Get("/api/getInitData", get_init_data.GetInitData)
-	app.Delete("/api/getSecret", get_secret.GetSecret)
-	app.Get("/api/getSecretStatus", get_secret_status.GetSecretStatus)
-	app.Put("/api/putSecret", put_secret.PutSecret)
+	// Create server with custom header
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", params.Port),
+		Handler: addServerHeader(mux),
+	}
 
 	fmt.Println("  - server on port", params.Port)
 	fmt.Printf("  - all ok. Please open http://localhost:%d\n", params.Port)
-	app.Listen(fmt.Sprintf(":%d", params.Port))
+
+	if err := server.ListenAndServe(); err != nil {
+		panic(err)
+	}
+}
+
+func addServerHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "seif v."+params.VERSION)
+		next.ServeHTTP(w, r)
+	})
 }

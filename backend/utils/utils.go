@@ -21,9 +21,8 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 func Abort(msg string, a ...any) {
@@ -42,7 +41,7 @@ type errorr struct {
 	Error  *string `json:"error"`
 }
 
-func SendError(c *fiber.Ctx, status int, errCode string, obj string, err *error) error {
+func SendError(w http.ResponseWriter, status int, errCode string, obj string, err *error) {
 	var errString *string
 	if err != nil {
 		_errString := (*err).Error()
@@ -56,6 +55,8 @@ func SendError(c *fiber.Ctx, status int, errCode string, obj string, err *error)
 
 	str, _ := json.Marshal(e)
 	fmt.Fprintf(os.Stderr, "%s\n", str)
-	c.JSON(e)
-	return c.SendStatus(status)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(e)
 }

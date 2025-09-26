@@ -19,10 +19,10 @@
 package get_secret_status
 
 import (
+	"encoding/json"
+	"net/http"
 	"seif/params"
 	"seif/utils"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type response struct {
@@ -31,22 +31,30 @@ type response struct {
 
 const SQL_GET_SECRET = "SELECT 1 FROM SECRETS WHERE ID = $1"
 
-func GetSecretStatus(c *fiber.Ctx) error {
-	id := c.Query("id", "")
+func GetSecretStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
 
 	params.Lock.Lock()
 	defer params.Lock.Unlock()
 
 	rows, err := params.Db.Query(SQL_GET_SECRET, id)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE001, "secret", &err)
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE001, "secret", &err)
+		return
 	}
 	defer rows.Close()
+
 	ret := rows.Next()
 	if err = rows.Err(); err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE003, "secret", &err)
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE003, "secret", &err)
+		return
 	}
 
-	c.JSON(response{Pristine: ret})
-	return c.SendStatus(fiber.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response{Pristine: ret})
 }

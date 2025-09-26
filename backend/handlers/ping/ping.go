@@ -19,9 +19,17 @@
 package ping
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 )
 
-func Ping(c *fiber.Ctx) error {
-	return c.SendString("pong")
+var pong = []byte("pong")
+
+func Ping(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(pong)
 }

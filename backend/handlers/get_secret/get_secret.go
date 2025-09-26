@@ -20,11 +20,11 @@ package get_secret
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"seif/crypton"
 	"seif/params"
 	"seif/utils"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type response struct {
@@ -34,17 +34,24 @@ type response struct {
 const SQL1 = "SELECT SECRET FROM SECRETS WHERE ID = $1"
 const SQL2 = "DELETE FROM SECRETS WHERE ID = $1"
 
-func GetSecret(c *fiber.Ctx) error {
-	id := c.Query("id", "")
-	idBs, err := crypton.Str2bs(id)
-	if err != nil {
-		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE004, "id", &err)
+func GetSecret(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	key := c.Query("key", "")
+	id := r.URL.Query().Get("id")
+	idBs, err := crypton.Str2bs(id)
+	if err != nil {
+		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "id", &err)
+		return
+	}
+
+	key := r.URL.Query().Get("key")
 	keyBs, err := crypton.Str2bs(key)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE004, "key", &err)
+		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "key", &err)
+		return
 	}
 
 	params.Lock.Lock()
@@ -54,44 +61,52 @@ func GetSecret(c *fiber.Ctx) error {
 
 	tx, err := params.Db.BeginTx(context.Background(), nil)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, "FHE007", "", &err)
+		utils.SendError(w, http.StatusInternalServerError, "FHE007", "", &err)
+		return
 	}
 	defer tx.Rollback()
 
 	rows, err := tx.Query(SQL1, id)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE001, "secret", &err)
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE001, "secret", &err)
+		return
 	}
 	defer rows.Close()
+
 	if rows.Next() {
 		var secret []byte
 		err = rows.Scan(&secret)
 		if err != nil {
-			return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE001, "secret", &err)
+			utils.SendError(w, http.StatusInternalServerError, utils.FHE001, "secret", &err)
+			return
 		}
 
 		plaintxt, err := crypton.Decode(idBs, keyBs, secret)
 		if err != nil {
-			return utils.SendError(c, fiber.StatusBadRequest, utils.FHE008, "decryption", &err)
+			utils.SendError(w, http.StatusBadRequest, utils.FHE008, "decryption", &err)
+			return
 		}
 
 		ret.Secret = &plaintxt
 	}
 	if err = rows.Err(); err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE003, "secret", &err)
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE003, "secret", &err)
+		return
 	}
 
 	if ret.Secret != nil {
 		_, err := tx.Exec(SQL2, id)
 		if err != nil {
-			return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE009, "secret", &err)
+			utils.SendError(w, http.StatusInternalServerError, utils.FHE009, "secret", &err)
+			return
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE009, "transaction", &err)
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE009, "transaction", &err)
+		return
 	}
 
-	c.JSON(ret)
-	return c.SendStatus(fiber.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(ret)
 }

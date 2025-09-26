@@ -19,9 +19,9 @@
 package get_init_data
 
 import (
+	"encoding/json"
+	"net/http"
 	"seif/params"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type response struct {
@@ -30,7 +30,19 @@ type response struct {
 	DefaultDays int    `json:"default_days"`
 }
 
-func GetInitData(c *fiber.Ctx) error {
-	c.JSON(response{Version: params.VERSION, MaxDays: params.MaxDays, DefaultDays: params.DefaultDays})
-	return c.SendStatus(fiber.StatusOK)
+func GetInitData(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	resp := response{
+		Version:     params.VERSION,
+		MaxDays:     params.MaxDays,
+		DefaultDays: params.DefaultDays,
+	}
+
+	json.NewEncoder(w).Encode(resp)
 }

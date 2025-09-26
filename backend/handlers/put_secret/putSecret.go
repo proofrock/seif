@@ -19,12 +19,12 @@
 package put_secret
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"seif/crypton"
 	"seif/params"
 	"seif/utils"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type request struct {
@@ -41,23 +41,32 @@ const SQL = `
 	INSERT INTO SECRETS (ID, SECRET, EXPIRY, TS)
 	VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`
 
-func PutSecret(c *fiber.Ctx) error {
+func PutSecret(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	req := new(request)
-	if err := c.BodyParser(req); err != nil {
-		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE004, "body", &err)
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		utils.SendError(w, http.StatusBadRequest, utils.FHE004, "body", &err)
+		return
 	}
 
 	if len(req.Secret) > params.MaxBytes {
-		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE005, "", nil)
+		utils.SendError(w, http.StatusBadRequest, utils.FHE005, "", nil)
+		return
 	}
 
 	if req.Expiry < 1 || req.Expiry > params.MaxDays {
-		return utils.SendError(c, fiber.StatusBadRequest, utils.FHE006, fmt.Sprint(params.MaxDays), nil)
+		utils.SendError(w, http.StatusBadRequest, utils.FHE006, fmt.Sprint(params.MaxDays), nil)
+		return
 	}
 
 	id, key, crypto, err := crypton.Encode(req.Secret)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE007, "", &err)
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE007, "", &err)
+		return
 	}
 
 	ret := response{Id: crypton.Bs2str(id), Key: crypton.Bs2str(key)}
@@ -67,9 +76,10 @@ func PutSecret(c *fiber.Ctx) error {
 
 	_, err = params.Db.Exec(SQL, ret.Id, crypto, req.Expiry)
 	if err != nil {
-		return utils.SendError(c, fiber.StatusInternalServerError, utils.FHE002, "secrets", &err)
+		utils.SendError(w, http.StatusInternalServerError, utils.FHE002, "secrets", &err)
+		return
 	}
 
-	c.JSON(ret)
-	return c.SendStatus(fiber.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(ret)
 }
