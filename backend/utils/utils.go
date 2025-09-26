@@ -21,12 +21,13 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 )
 
 func Abort(msg string, a ...any) {
-	fmt.Fprintf(os.Stderr, "FATAL: %s\n", fmt.Sprintf(msg, a...))
+	log.Printf("FATAL: %s\n", fmt.Sprintf(msg, a...))
 	os.Exit(-1)
 }
 
@@ -54,7 +55,7 @@ func SendError(w http.ResponseWriter, status int, errCode string, obj string, er
 	}
 
 	str, _ := json.Marshal(e)
-	fmt.Fprintf(os.Stderr, "%s\n", str)
+	log.Printf("%s\n", str)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

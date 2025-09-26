@@ -28,7 +28,7 @@ import (
 const VERSION = "v0.0.0"
 
 // https://manytools.org/hacker-tools/ascii-banner/, profile "Small Slant"
-const banner = `   ____    _ ___
+const banner = `   ____      ___
   / __/__ (_) _/
  _\ \/ -_) / _/ 
 /___/\__/_/_/`

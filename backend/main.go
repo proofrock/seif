@@ -22,6 +22,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/http"
 	"seif/db_ops"
 	"seif/flags"
@@ -80,8 +81,8 @@ func main() {
 		Handler: addServerHeader(mux),
 	}
 
-	fmt.Println("  - server on port", params.Port)
-	fmt.Printf("  - all ok. Please open http://localhost:%d\n", params.Port)
+	log.Println("Started server on port", params.Port)
+	log.Printf("Everything ok. Please open http://localhost:%d\n", params.Port)
 
 	if err := server.ListenAndServe(); err != nil {
 		panic(err)

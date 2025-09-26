@@ -20,8 +20,7 @@ package db_ops
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
+	"log"
 	"seif/params"
 	"seif/utils"
 	"time"
@@ -83,12 +82,12 @@ func maint(allowToPanic bool) {
 		if allowToPanic {
 			utils.Abort("in doing cleanup: %s\n", err.Error())
 		} else {
-			fmt.Fprintf(os.Stderr, "in doing maintenance cleanup: %s\n", err.Error())
+			log.Printf("in doing maintenance cleanup: %s\n", err.Error())
 		}
 	}
 
 	if len(keysToDelete) > 0 {
-		fmt.Printf("Cleaned up %d expired secrets\n", len(keysToDelete))
+		log.Printf("Cleaned up %d expired secrets\n", len(keysToDelete))
 	}
 }
 

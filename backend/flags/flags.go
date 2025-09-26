@@ -22,6 +22,7 @@ import (
 	"flag"
 	"os"
 	"seif/params"
+	"seif/utils"
 	"strconv"
 )
 
@@ -53,7 +54,7 @@ func getEnvIntOrDefault(key string, defaultValue int) int {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
 		} else {
-			println("FATAL: Env var '", key, "' is not numeric")
+			utils.Abort("Env var '%s' is not numeric", key)
 		}
 	}
 	return defaultValue
