@@ -4,3 +4,4 @@ seif
 *.db*
 bin/
 test/
+start.sh

@@ -225,7 +225,26 @@
       class="container-fluid d-flex justify-content-between align-items-center"
     >
       <div class="navbar-brand bg-success text-white mb-0">
-        🔐 Seif
+        {#if token == ""}
+          <!-- Clickable title when in creation mode -->
+          <span
+            onclick={returnToMain}
+            style="cursor: pointer; opacity: {(link || bypassLink) ? '0.8' : '1'}; transition: opacity 0.2s;"
+            onmouseover={(e) => e.target.style.opacity = '0.7'}
+            onmouseout={(e) => e.target.style.opacity = (link || bypassLink) ? '0.8' : '1'}
+            onfocus={(e) => e.target.style.opacity = '0.7'}
+            onblur={(e) => e.target.style.opacity = (link || bypassLink) ? '0.8' : '1'}
+            role="button"
+            tabindex="0"
+            onkeypress={(e) => e.key === 'Enter' && returnToMain()}
+            title={(link || bypassLink) ? 'Return to main page' : ''}
+          >
+            🔐 Seif
+          </span>
+        {:else}
+          <!-- Non-clickable title when viewing secrets -->
+          🔐 Seif
+        {/if}
         <span class="small"
           ><small
             ><small>&nbsp;one time secrets drop - {initData.version}</small
@@ -381,43 +400,43 @@
               <!-- Secret Creation Mode -->
               {#if selectedMode === "secret" || bypassToken || !initData.oauth_enabled || !initData.allow_bypass_link || !isLoggedIn}
                 <p class="small text-muted mb-4">
-                Input your secret here. It will be encrypted and saved to the
-                server, and an one-time link will be generated.
-              </p>
-              <textarea
-                class="form-control"
-                id="secretPlace"
-                style="height: 300px; font-family: monospace;"
-                bind:value={contents}
-              ></textarea>
-              <div>&nbsp;</div>
-              <div class="input-group">
-                <div class="input-group-prepend">
+                  Input your secret here. It will be encrypted and saved to the
+                  server, and an one-time link will be generated.
+                </p>
+                <textarea
+                  class="form-control"
+                  id="secretPlace"
+                  style="height: 300px; font-family: monospace;"
+                  bind:value={contents}
+                ></textarea>
+                <div>&nbsp;</div>
+                <div class="input-group">
+                  <div class="input-group-prepend">
                     <span class="input-group-text text-muted"
                       >Expires after</span
                     >
-                </div>
-                <input
-                  type="number"
-                  class="form-control"
-                  aria-label="Default"
-                  aria-describedby="inputGroup-sizing-default"
-                  bind:value={expiryDays}
-                  min="1"
-                  max={initData.max_days}
-                />
-                <div class="input-group-append">
+                  </div>
+                  <input
+                    type="number"
+                    class="form-control"
+                    aria-label="Default"
+                    aria-describedby="inputGroup-sizing-default"
+                    bind:value={expiryDays}
+                    min="1"
+                    max={initData.max_days}
+                  />
+                  <div class="input-group-append">
                     <span class="input-group-text text-muted">days</span>
+                  </div>
                 </div>
-              </div>
-              <div>&nbsp;</div>
-              <button
-                type="button"
-                class="btn btn-success"
-                id="process"
-                onclick={send}>Give me the link!</button
-              >
-            {/if}
+                <div>&nbsp;</div>
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  id="process"
+                  onclick={send}>Give me the link!</button
+                >
+              {/if}
 
               <!-- Bypass Link Generation Mode -->
               {#if selectedMode === "bypass" && initData.oauth_enabled && initData.allow_bypass_link && isLoggedIn}

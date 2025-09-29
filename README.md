@@ -11,6 +11,7 @@ It's a single executable, Go is used for the server side and Svelte on the front
 - **One-time access**: Secrets are automatically deleted after being viewed
 - Strong encryption, **zero trust** security model
 - **OAUTH2 support** for authentication - auth users can create secrets, anyone with the link can read them
+- If auth is enabled, it's possible to generate **Single Use Access Links** to enable external, non-authenticated users to send a secret
 - **Time-based expiration**: Configure retention periods (1-N days)
 - **Size limits**: Configurable maximum secret size
 - **Small code** to be able to easily review it
@@ -28,14 +29,15 @@ It's a single executable, Go is used for the server side and Svelte on the front
 
 The executable is simply ran like `./seif[.exe]`. It's configured via environment variables, to be docker-friendly.
 
-| Variable             | Type   | Meaning                                                      | Default     |
-| -------------------- | ------ | ------------------------------------------------------------ | ----------- |
-| `SEIF_DB`            | string | The path of the database                                     | `./seif.db` |
-| `SEIF_PORT`          | number | Port                                                         | `34543`     |
-| `SEIF_MAX_DAYS`      | number | Maximum retention days to allow                              | `3`         |
-| `SEIF_DEFAULT_DAYS`  | number | Default retention days to allow, proposed in GUI             | `3`         |
-| `SEIF_MAX_BYTES`     | number | Maximum size, in bytes, of a secret                          | `1024`      |
-| `SEIF_OAUTH_ENABLED` | bool   | Enable OAuth2 authentication for secret creation (see below) | `false`     |
+| Variable                 | Type   | Meaning                                                      | Default     |
+| ------------------------ | ------ | ------------------------------------------------------------ | ----------- |
+| `SEIF_DB`                | string | The path of the database                                     | `./seif.db` |
+| `SEIF_PORT`              | number | Port                                                         | `34543`     |
+| `SEIF_MAX_DAYS`          | number | Maximum retention days to allow                              | `3`         |
+| `SEIF_DEFAULT_DAYS`      | number | Default retention days to allow, proposed in GUI             | `3`         |
+| `SEIF_MAX_BYTES`         | number | Maximum size, in bytes, of a secret                          | `1024`      |
+| `SEIF_OAUTH_ENABLED`     | bool   | Enable OAuth2 authentication for secret creation (see below) | `false`     |
+| `SEIF_ALLOW_ACCESS_LINK` | bool   | Enable auth bypass link generation, if auth is enabled       | `false`     |
 
 ### OAuth2 Authentication (Optional)
 
@@ -73,12 +75,38 @@ export SEIF_OAUTH_AUTH_URL=https://pocketid.io/oauth/authorize
 export SEIF_OAUTH_TOKEN_URL=https://pocketid.io/oauth/token
 export SEIF_OAUTH_USERINFO_URL=https://pocketid.io/oauth/userinfo
 export SEIF_OAUTH_EMAIL_WHITELIST="admin@company.com,user@company.com"
+export SEIF_ALLOW_ACCESS_LINK=true
 ./seif
 ```
 
 **Important**:
 - Register the callback URL (`http://host:port/api/auth/callback`) in your OAuth2 provider's application settings
 - Omit `SEIF_OAUTH_EMAIL_WHITELIST` to allow any authenticated user, or set it to restrict access to specific email addresses
+
+### Access Links (Optional)
+
+When OAuth2 is enabled, authenticated users can optionally generate access links that allow unauthenticated users to create secrets temporarily. This feature is controlled by the `SEIF_ALLOW_ACCESS_LINK` environment variable.
+
+**How Access Links Work**:
+- **Generation**: Authenticated users can create single-use, time-limited links (1-24 hours)
+- **Usage**: Recipients can use these links to create secrets without authentication
+- **Security**: Each link can only be used once and expires automatically if not used
+
+**Configuration**:
+```bash
+export SEIF_OAUTH_ENABLED=true # prerequisite
+...
+export SEIF_ALLOW_ACCESS_LINK=true
+```
+
+**Use Cases**:
+- Sharing secret creation access with external collaborators
+- Temporary access for users without OAuth2 accounts
+
+**Security Considerations**:
+- Links are single-use and automatically expire
+- Generation is logged for audit purposes
+- Feature is opt-in
 
 ## Installing (with Docker)
 
