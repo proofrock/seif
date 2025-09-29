@@ -26,10 +26,11 @@ import (
 )
 
 type response struct {
-	Version      string `json:"version"`
-	MaxDays      int    `json:"max_days"`
-	DefaultDays  int    `json:"default_days"`
-	OAuthEnabled bool   `json:"oauth_enabled"`
+	Version            string `json:"version"`
+	MaxDays            int    `json:"max_days"`
+	DefaultDays        int    `json:"default_days"`
+	OAuthEnabled       bool   `json:"oauth_enabled"`
+	AllowBypassLink    bool   `json:"allow_bypass_link"`
 }
 
 func GetInitData(w http.ResponseWriter, r *http.Request) {
@@ -41,10 +42,11 @@ func GetInitData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	resp := response{
-		Version:      params.VERSION,
-		MaxDays:      params.MaxDays,
-		DefaultDays:  params.DefaultDays,
-		OAuthEnabled: oauth2.OAuth2Config.Enabled,
+		Version:         params.VERSION,
+		MaxDays:         params.MaxDays,
+		DefaultDays:     params.DefaultDays,
+		OAuthEnabled:    oauth2.OAuth2Config.Enabled,
+		AllowBypassLink: oauth2.OAuth2Config.AllowBypassLink,
 	}
 
 	json.NewEncoder(w).Encode(resp)

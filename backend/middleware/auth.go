@@ -43,8 +43,22 @@ type SessionData struct {
 	ExpiresAt time.Time
 }
 
+type BypassTokenStore struct {
+	tokens map[string]*BypassTokenData
+}
+
+type BypassTokenData struct {
+	CreatedBy string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+}
+
 var sessions = &SessionStore{
 	sessions: make(map[string]*SessionData),
+}
+
+var bypassTokens = &BypassTokenStore{
+	tokens: make(map[string]*BypassTokenData),
 }
 
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
@@ -53,6 +67,24 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		if !oauth2.OAuth2Config.Enabled {
 			next.ServeHTTP(w, r)
 			return
+		}
+
+		// Check for bypass token first (only if bypass links are enabled)
+		bypassToken := r.URL.Query().Get("bt")
+		if bypassToken != "" && oauth2.OAuth2Config.AllowBypassLink {
+			tokenData, exists := bypassTokens.tokens[bypassToken]
+			if exists && time.Now().Before(tokenData.ExpiresAt) && tokenData.UsedAt == nil {
+				// Mark token as used (single use)
+				now := time.Now()
+				tokenData.UsedAt = &now
+				// Allow access without adding user to context
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Clean up expired or used tokens
+			if exists {
+				delete(bypassTokens.tokens, bypassToken)
+			}
 		}
 
 		// Check for session cookie
@@ -94,7 +126,7 @@ func DestroySession(sessionID string) {
 }
 
 func generateSessionID() string {
-	b := make([]byte, 32)
+	b := make([]byte, 128>>3)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
 }
@@ -116,4 +148,27 @@ func GetSessionData(sessionID string) *SessionData {
 		return nil
 	}
 	return sessionData
+}
+
+func CreateBypassToken(createdByUserID string, validityDuration time.Duration) string {
+	tokenID := generateSessionID()
+	bypassTokens.tokens[tokenID] = &BypassTokenData{
+		CreatedBy: createdByUserID,
+		ExpiresAt: time.Now().Add(validityDuration),
+		UsedAt:    nil,
+	}
+
+	// Clean up expired tokens
+	cleanupExpiredBypassTokens()
+
+	return tokenID
+}
+
+func cleanupExpiredBypassTokens() {
+	now := time.Now()
+	for token, tokenData := range bypassTokens.tokens {
+		if now.After(tokenData.ExpiresAt) || tokenData.UsedAt != nil {
+			delete(bypassTokens.tokens, token)
+		}
+	}
 }

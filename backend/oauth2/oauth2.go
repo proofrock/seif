@@ -38,6 +38,7 @@ type Config struct {
 	ClientSecret    string
 	RedirectURL     string
 	EmailWhitelist  []string
+	AllowBypassLink bool
 	Config          *oauth2.Config
 }
 
@@ -55,6 +56,7 @@ func init() {
 
 func LoadConfig() *Config {
 	enabled := strings.ToLower(os.Getenv("SEIF_OAUTH_ENABLED")) == "true"
+	allowBypassLink := strings.ToLower(os.Getenv("SEIF_ALLOW_ACCESS_LINK")) == "true"
 
 	// Parse email whitelist
 	var emailWhitelist []string
@@ -68,11 +70,12 @@ func LoadConfig() *Config {
 	}
 
 	config := &Config{
-		Enabled:        enabled,
-		ClientID:       os.Getenv("SEIF_OAUTH_CLIENT_ID"),
-		ClientSecret:   os.Getenv("SEIF_OAUTH_CLIENT_SECRET"),
-		RedirectURL:    os.Getenv("SEIF_OAUTH_REDIRECT_URI"),
-		EmailWhitelist: emailWhitelist,
+		Enabled:         enabled,
+		ClientID:        os.Getenv("SEIF_OAUTH_CLIENT_ID"),
+		ClientSecret:    os.Getenv("SEIF_OAUTH_CLIENT_SECRET"),
+		RedirectURL:     os.Getenv("SEIF_OAUTH_REDIRECT_URI"),
+		EmailWhitelist:  emailWhitelist,
+		AllowBypassLink: allowBypassLink,
 	}
 
 	if !enabled {
@@ -133,10 +136,15 @@ func LoadConfig() *Config {
 		Endpoint:     endpoint,
 	}
 
+	bypassStatus := "disabled"
+	if config.AllowBypassLink {
+		bypassStatus = "enabled"
+	}
+
 	if len(config.EmailWhitelist) > 0 {
-		log.Printf("OAuth2: Enabled with custom provider (email whitelist: %v)", config.EmailWhitelist)
+		log.Printf("OAuth2: Enabled with custom provider (email whitelist: %v, access links: %s)", config.EmailWhitelist, bypassStatus)
 	} else {
-		log.Printf("OAuth2: Enabled with custom provider (all emails allowed)")
+		log.Printf("OAuth2: Enabled with custom provider (all emails allowed, access links: %s)", bypassStatus)
 	}
 	return config
 }

@@ -30,6 +30,10 @@
   let expiryDays = $state(3);
   let user = $state(null);
   let isLoggedIn = $state(false);
+  let bypassLink = $state("");
+  let bypassValidityHours = $state(1);
+  let bypassToken = $state("");
+  let selectedMode = $state("secret"); // "secret" or "bypass"
 
   function getParameterByName(name, url = window.location.href) {
     name = name.replace(/[\[\]]/g, "\\$&");
@@ -43,6 +47,9 @@
   onMount(async () => {
     const _token = getParameterByName("t");
     token = !_token ? "" : _token;
+
+    const _bypassToken = getParameterByName("bt");
+    bypassToken = !_bypassToken ? "" : _bypassToken;
 
     const ret = await CALL("getInitData", "GET");
     if (ret.isErr) {
@@ -124,7 +131,10 @@
       secret: contents,
       expiry: expiryDays,
     };
-    const ret = await CALL("putSecret", "PUT", obj);
+
+    // Include bypass token in query parameters if available
+    const queryParams = bypassToken ? { bt: bypassToken } : null;
+    const ret = await CALL("putSecret", "PUT", obj, queryParams);
     if (ret.isErr) {
       await ERROR(`Saving failed. ${ret.message}.`);
     } else {
@@ -158,6 +168,53 @@
       await TOAST("Secret expired, already revealed or wrong link.");
     } else {
       contents = ret.payload.secret;
+    }
+  }
+
+  async function generateBypassLink() {
+    if (typeof bypassValidityHours != "number")
+      bypassValidityHours = parseInt(bypassValidityHours);
+
+    if (
+      bypassValidityHours < 1 ||
+      bypassValidityHours > 24 ||
+      isNaN(bypassValidityHours)
+    ) {
+      await ERROR("Invalid validity hours! Must be between 1 and 24.");
+      bypassValidityHours = 1;
+      return;
+    }
+
+    const obj = {
+      validity_hours: bypassValidityHours,
+    };
+    const ret = await CALL("auth/generate-bypass-link", "POST", obj);
+    if (ret.isErr) {
+      await ERROR(`Bypass link generation failed. ${ret.message}.`);
+    } else {
+      bypassLink = ret.payload.bypass_url;
+      await TOAST("Bypass link generated successfully!");
+    }
+  }
+
+  function handleModeChange() {
+    // Clear any existing generated links when switching modes
+    bypassLink = "";
+    link = "";
+    linkNoKey = "";
+    linkSecret = "";
+  }
+
+  function returnToMain() {
+    // Only allow return to main in creation mode, not when viewing secrets
+    if (token == "") {
+      // Reset all state to return to main creation page
+      contents = "";
+      link = "";
+      linkNoKey = "";
+      linkSecret = "";
+      bypassLink = "";
+      selectedMode = "secret";
     }
   }
 </script>
@@ -237,20 +294,20 @@
       <div class="col-xs-1 col-sm-2 col-md-3 col-lg-4">&nbsp;</div>
       <div class="form col-xs-10 col-sm-8 col-md-6 col-lg-4">
         {#if token == ""}
-          {#if link == ""}
-            {#if initData.oauth_enabled && !isLoggedIn}
+          {#if link == "" && bypassLink == ""}
+            {#if initData.oauth_enabled && !isLoggedIn && !bypassToken}
               <div class="text-center py-5">
                 <div class="mb-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="64"
                     height="64"
-                    fill="currentColor"
-                    class="text-muted"
-                    viewBox="0 0 16 16"
+                    fill="#000000"
+                    viewBox="0 0 256 256"
+                    ><path
+                      d="M128,20A108,108,0,1,0,236,128,108.12,108.12,0,0,0,128,20Zm0,192a84,84,0,1,1,84-84A84.09,84.09,0,0,1,128,212Zm0-144a44,44,0,0,0-33.61,72.41l-9.86,32.06A12,12,0,0,0,96,188h64a12,12,0,0,0,11.47-15.53l-9.86-32.06A44,44,0,0,0,128,68Zm8.53,72.51L143.75,164h-31.5l7.22-23.49a12,12,0,0,0-4-12.89,20,20,0,1,1,25,0A12,12,0,0,0,136.53,140.51Z"
+                    ></path></svg
                   >
-                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-                  </svg>
                 </div>
                 <h5 class="text-muted mb-3">Authentication Required</h5>
                 <p class="lead text-muted">
@@ -263,11 +320,67 @@
                   >
                     login
                   </button>
-                  to create secrets.
+                  to create secrets.<br /><br />The secrets will be accessible
+                  one time, only by the recipient of the link.
                 </p>
               </div>
             {:else}
-              <p>
+              {#if bypassToken && initData.oauth_enabled && !isLoggedIn}
+                <div class="alert alert-info" role="alert">
+                  <small>
+                    <strong>✨ Guest Access:</strong> You're creating a secret using
+                    a one-time invitation link. This access is temporary and will
+                    expire soon.
+                  </small>
+                </div>
+              {/if}
+
+              <!-- Mode Selection Radio Buttons (only show if both modes are available) -->
+              {#if initData.oauth_enabled && initData.allow_bypass_link && isLoggedIn && !bypassToken}
+                <div class="text-center mb-4">
+                  <div
+                    class="btn-group"
+                    role="group"
+                    aria-label="Mode selection"
+                  >
+                    <input
+                      type="radio"
+                      class="btn-check"
+                      name="mode"
+                      id="secretMode"
+                      bind:group={selectedMode}
+                      value="secret"
+                      onchange={handleModeChange}
+                    />
+                    <label
+                      class="btn btn-outline-success btn-small"
+                      for="secretMode"
+                    >
+                      Create Secret Link
+                    </label>
+
+                    <input
+                      type="radio"
+                      class="btn-check"
+                      name="mode"
+                      id="bypassMode"
+                      bind:group={selectedMode}
+                      value="bypass"
+                      onchange={handleModeChange}
+                    />
+                    <label
+                      class="btn btn-outline-success btn-small"
+                      for="bypassMode"
+                    >
+                      Generate Access Link
+                    </label>
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Secret Creation Mode -->
+              {#if selectedMode === "secret" || bypassToken || !initData.oauth_enabled || !initData.allow_bypass_link || !isLoggedIn}
+                <p class="small text-muted mb-4">
                 Input your secret here. It will be encrypted and saved to the
                 server, and an one-time link will be generated.
               </p>
@@ -280,7 +393,9 @@
               <div>&nbsp;</div>
               <div class="input-group">
                 <div class="input-group-prepend">
-                  <span class="input-group-text">Expires after</span>
+                    <span class="input-group-text text-muted"
+                      >Expires after</span
+                    >
                 </div>
                 <input
                   type="number"
@@ -292,7 +407,7 @@
                   max={initData.max_days}
                 />
                 <div class="input-group-append">
-                  <span class="input-group-text">days</span>
+                    <span class="input-group-text text-muted">days</span>
                 </div>
               </div>
               <div>&nbsp;</div>
@@ -303,7 +418,44 @@
                 onclick={send}>Give me the link!</button
               >
             {/if}
-          {:else}
+
+              <!-- Bypass Link Generation Mode -->
+              {#if selectedMode === "bypass" && initData.oauth_enabled && initData.allow_bypass_link && isLoggedIn}
+                <div class="text-center">
+                  <p class="small text-muted mb-4">
+                    Create a one-time link that allows unauthenticated users to
+                    create secrets.
+                  </p>
+
+                  <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                      <span class="input-group-text text-muted">Valid for</span>
+                    </div>
+                    <input
+                      type="number"
+                      class="form-control"
+                      aria-label="Validity Hours"
+                      bind:value={bypassValidityHours}
+                      min="1"
+                      max="24"
+                    />
+                    <div class="input-group-append">
+                      <span class="input-group-text text-muted">hours</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="btn btn-success"
+                    onclick={generateBypassLink}
+                  >
+                    Generate Access Link
+                  </button>
+                </div>
+              {/if}
+            {/if}
+          {:else if link != ""}
+            <!-- Secret Link Results -->
             <label for="link" class="form-label"
               >Success! Your one-time link is:</label
             >
@@ -324,6 +476,21 @@
                 >Note: if the user inputs the wrong key, the secret will not be
                 revealed but it will be "used" all the same, and the link will
                 be invalid.</i
+              >
+            </p>
+          {:else if bypassLink != ""}
+            <!-- Bypass Link Results -->
+            <label for="bypassLink" class="form-label">
+              <strong
+                >Access Link Generated<br />(single-use, expires in {bypassValidityHours}
+                hour{bypassValidityHours === 1 ? "" : "s"})</strong
+              >
+            </label>
+            <ClipboardableField id="bypassLink" text={bypassLink} />
+            <p class="small text-muted mt-2">
+              <i
+                >Share this link with unauthenticated users to allow them to
+                create secrets without logging in.</i
               >
             </p>
           {/if}

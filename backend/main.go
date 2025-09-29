@@ -82,6 +82,7 @@ func main() {
 	mux.HandleFunc("/api/auth/callback", auth.Callback)
 	mux.HandleFunc("/api/auth/logout", auth.Logout)
 	mux.HandleFunc("/api/auth/user", auth.GetUser)
+	mux.HandleFunc("/api/auth/generate-bypass-link", middleware.RequireAuth(auth.GenerateBypassLink))
 
 	// Create server with custom header
 	server := &http.Server{
