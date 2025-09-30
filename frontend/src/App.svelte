@@ -30,10 +30,10 @@
   let expiryDays = $state(3);
   let user = $state(null);
   let isLoggedIn = $state(false);
-  let bypassLink = $state("");
-  let bypassValidityHours = $state(1);
-  let bypassToken = $state("");
-  let selectedMode = $state("secret"); // "secret" or "bypass"
+  let guestLink = $state("");
+  let guestValidityHours = $state(1);
+  let guestToken = $state("");
+  let selectedMode = $state("secret"); // "secret" or "guest"
 
   function getParameterByName(name, url = window.location.href) {
     name = name.replace(/[\[\]]/g, "\\$&");
@@ -48,8 +48,8 @@
     const _token = getParameterByName("t");
     token = !_token ? "" : _token;
 
-    const _bypassToken = getParameterByName("bt");
-    bypassToken = !_bypassToken ? "" : _bypassToken;
+    const _guestToken = getParameterByName("gt");
+    guestToken = !_guestToken ? "" : _guestToken;
 
     const ret = await CALL("getInitData", "GET");
     if (ret.isErr) {
@@ -132,8 +132,8 @@
       expiry: expiryDays,
     };
 
-    // Include bypass token in query parameters if available
-    const queryParams = bypassToken ? { bt: bypassToken } : null;
+    // Include guest token in query parameters if available
+    const queryParams = guestToken ? { gt: guestToken } : null;
     const ret = await CALL("putSecret", "PUT", obj, queryParams);
     if (ret.isErr) {
       await ERROR(`Saving failed. ${ret.message}.`);
@@ -171,35 +171,35 @@
     }
   }
 
-  async function generateBypassLink() {
-    if (typeof bypassValidityHours != "number")
-      bypassValidityHours = parseInt(bypassValidityHours);
+  async function generateGuestLink() {
+    if (typeof guestValidityHours != "number")
+      guestValidityHours = parseInt(guestValidityHours);
 
     if (
-      bypassValidityHours < 1 ||
-      bypassValidityHours > 24 ||
-      isNaN(bypassValidityHours)
+      guestValidityHours < 1 ||
+      guestValidityHours > 24 ||
+      isNaN(guestValidityHours)
     ) {
       await ERROR("Invalid validity hours! Must be between 1 and 24.");
-      bypassValidityHours = 1;
+      guestValidityHours = 1;
       return;
     }
 
     const obj = {
-      validity_hours: bypassValidityHours,
+      validity_hours: guestValidityHours,
     };
-    const ret = await CALL("auth/generate-bypass-link", "POST", obj);
+    const ret = await CALL("auth/generate-guest-link", "POST", obj);
     if (ret.isErr) {
-      await ERROR(`Bypass link generation failed. ${ret.message}.`);
+      await ERROR(`Guest link generation failed. ${ret.message}.`);
     } else {
-      bypassLink = ret.payload.bypass_url;
-      await TOAST("Bypass link generated successfully!");
+      guestLink = ret.payload.guest_url;
+      await TOAST("Guest link generated successfully!");
     }
   }
 
   function handleModeChange() {
     // Clear any existing generated links when switching modes
-    bypassLink = "";
+    guestLink = "";
     link = "";
     linkNoKey = "";
     linkSecret = "";
@@ -213,7 +213,7 @@
       link = "";
       linkNoKey = "";
       linkSecret = "";
-      bypassLink = "";
+      guestLink = "";
       selectedMode = "secret";
     }
   }
@@ -229,15 +229,15 @@
           <!-- Clickable title when in creation mode -->
           <span
             onclick={returnToMain}
-            style="cursor: pointer; opacity: {(link || bypassLink) ? '0.8' : '1'}; transition: opacity 0.2s;"
+            style="cursor: pointer; opacity: {(link || guestLink) ? '0.8' : '1'}; transition: opacity 0.2s;"
             onmouseover={(e) => e.target.style.opacity = '0.7'}
-            onmouseout={(e) => e.target.style.opacity = (link || bypassLink) ? '0.8' : '1'}
+            onmouseout={(e) => e.target.style.opacity = (link || guestLink) ? '0.8' : '1'}
             onfocus={(e) => e.target.style.opacity = '0.7'}
-            onblur={(e) => e.target.style.opacity = (link || bypassLink) ? '0.8' : '1'}
+            onblur={(e) => e.target.style.opacity = (link || guestLink) ? '0.8' : '1'}
             role="button"
             tabindex="0"
             onkeypress={(e) => e.key === 'Enter' && returnToMain()}
-            title={(link || bypassLink) ? 'Return to main page' : ''}
+            title={(link || guestLink) ? 'Return to main page' : ''}
           >
             🔐 Seif
           </span>
@@ -313,8 +313,8 @@
       <div class="col-xs-1 col-sm-2 col-md-3 col-lg-4">&nbsp;</div>
       <div class="form col-xs-10 col-sm-8 col-md-6 col-lg-4">
         {#if token == ""}
-          {#if link == "" && bypassLink == ""}
-            {#if initData.oauth_enabled && !isLoggedIn && !bypassToken}
+          {#if link == "" && guestLink == ""}
+            {#if initData.oauth_enabled && !isLoggedIn && !guestToken}
               <div class="text-center py-5">
                 <div class="mb-4">
                   <svg
@@ -344,7 +344,7 @@
                 </p>
               </div>
             {:else}
-              {#if bypassToken && initData.oauth_enabled && !isLoggedIn}
+              {#if guestToken && initData.oauth_enabled && !isLoggedIn}
                 <div class="alert alert-info" role="alert">
                   <small>
                     <strong>✨ Guest Access:</strong> You're creating a secret using
@@ -355,7 +355,7 @@
               {/if}
 
               <!-- Mode Selection Radio Buttons (only show if both modes are available) -->
-              {#if initData.oauth_enabled && initData.allow_bypass_link && isLoggedIn && !bypassToken}
+              {#if initData.oauth_enabled && initData.allow_guest_link && isLoggedIn && !guestToken}
                 <div class="text-center mb-4">
                   <div
                     class="btn-group"
@@ -382,23 +382,23 @@
                       type="radio"
                       class="btn-check"
                       name="mode"
-                      id="bypassMode"
+                      id="guestMode"
                       bind:group={selectedMode}
-                      value="bypass"
+                      value="guest"
                       onchange={handleModeChange}
                     />
                     <label
                       class="btn btn-outline-success btn-small"
-                      for="bypassMode"
+                      for="guestMode"
                     >
-                      Generate Access Link
+                      Generate Guest Link
                     </label>
                   </div>
                 </div>
               {/if}
 
               <!-- Secret Creation Mode -->
-              {#if selectedMode === "secret" || bypassToken || !initData.oauth_enabled || !initData.allow_bypass_link || !isLoggedIn}
+              {#if selectedMode === "secret" || guestToken || !initData.oauth_enabled || !initData.allow_guest_link || !isLoggedIn}
                 <p class="small text-muted mb-4">
                   Input your secret here. It will be encrypted and saved to the
                   server, and an one-time link will be generated.
@@ -438,8 +438,8 @@
                 >
               {/if}
 
-              <!-- Bypass Link Generation Mode -->
-              {#if selectedMode === "bypass" && initData.oauth_enabled && initData.allow_bypass_link && isLoggedIn}
+              <!-- Guest Link Generation Mode -->
+              {#if selectedMode === "guest" && initData.oauth_enabled && initData.allow_guest_link && isLoggedIn}
                 <div class="text-center">
                   <p class="small text-muted mb-4">
                     Create a one-time link that allows unauthenticated users to
@@ -454,7 +454,7 @@
                       type="number"
                       class="form-control"
                       aria-label="Validity Hours"
-                      bind:value={bypassValidityHours}
+                      bind:value={guestValidityHours}
                       min="1"
                       max="24"
                     />
@@ -466,9 +466,9 @@
                   <button
                     type="button"
                     class="btn btn-success"
-                    onclick={generateBypassLink}
+                    onclick={generateGuestLink}
                   >
-                    Generate Access Link
+                    Generate Guest Link
                   </button>
                 </div>
               {/if}
@@ -497,15 +497,15 @@
                 be invalid.</i
               >
             </p>
-          {:else if bypassLink != ""}
-            <!-- Bypass Link Results -->
-            <label for="bypassLink" class="form-label">
+          {:else if guestLink != ""}
+            <!-- Guest Link Results -->
+            <label for="guestLink" class="form-label">
               <strong
-                >Access Link Generated<br />(single-use, expires in {bypassValidityHours}
-                hour{bypassValidityHours === 1 ? "" : "s"})</strong
+                >Guest Link Generated<br />(single-use, expires in {guestValidityHours}
+                hour{guestValidityHours === 1 ? "" : "s"})</strong
               >
             </label>
-            <ClipboardableField id="bypassLink" text={bypassLink} />
+            <ClipboardableField id="guestLink" text={guestLink} />
             <p class="small text-muted mt-2">
               <i
                 >Share this link with unauthenticated users to allow them to

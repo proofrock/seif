@@ -37,7 +37,7 @@ The executable is simply ran like `./seif[.exe]`. It's configured via environmen
 | `SEIF_DEFAULT_DAYS`      | number | Default retention days to allow, proposed in GUI             | `3`         |
 | `SEIF_MAX_BYTES`         | number | Maximum size, in bytes, of a secret                          | `1024`      |
 | `SEIF_OAUTH_ENABLED`     | bool   | Enable OAuth2 authentication for secret creation (see below) | `false`     |
-| `SEIF_ALLOW_ACCESS_LINK` | bool   | Enable auth bypass link generation, if auth is enabled       | `false`     |
+| `SEIF_ALLOW_GUEST_LINK`  | bool   | Enable guest link generation for authenticated users         | `false`     |
 
 ### OAuth2 Authentication (Optional)
 
@@ -75,7 +75,7 @@ export SEIF_OAUTH_AUTH_URL=https://pocketid.io/oauth/authorize
 export SEIF_OAUTH_TOKEN_URL=https://pocketid.io/oauth/token
 export SEIF_OAUTH_USERINFO_URL=https://pocketid.io/oauth/userinfo
 export SEIF_OAUTH_EMAIL_WHITELIST="admin@company.com,user@company.com"
-export SEIF_ALLOW_ACCESS_LINK=true
+export SEIF_ALLOW_GUEST_LINK=true
 ./seif
 ```
 
@@ -83,11 +83,11 @@ export SEIF_ALLOW_ACCESS_LINK=true
 - Register the callback URL (`http://host:port/api/auth/callback`) in your OAuth2 provider's application settings
 - Omit `SEIF_OAUTH_EMAIL_WHITELIST` to allow any authenticated user, or set it to restrict access to specific email addresses
 
-### Access Links (Optional)
+### Guest Links (Optional)
 
-When OAuth2 is enabled, authenticated users can optionally generate access links that allow unauthenticated users to create secrets temporarily. This feature is controlled by the `SEIF_ALLOW_ACCESS_LINK` environment variable.
+When OAuth2 is enabled, authenticated users can optionally generate guest links that allow unauthenticated users to create secrets temporarily. This feature is controlled by the `SEIF_ALLOW_GUEST_LINK` environment variable.
 
-**How Access Links Work**:
+**How Guest Links Work**:
 - **Generation**: Authenticated users can create single-use, time-limited links (1-24 hours)
 - **Usage**: Recipients can use these links to create secrets without authentication
 - **Security**: Each link can only be used once and expires automatically if not used
@@ -96,7 +96,7 @@ When OAuth2 is enabled, authenticated users can optionally generate access links
 ```bash
 export SEIF_OAUTH_ENABLED=true # prerequisite
 ...
-export SEIF_ALLOW_ACCESS_LINK=true
+export SEIF_ALLOW_GUEST_LINK=true
 ```
 
 **Use Cases**:

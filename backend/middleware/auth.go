@@ -44,11 +44,11 @@ type SessionData struct {
 	ExpiresAt time.Time
 }
 
-type BypassTokenStore struct {
-	tokens map[string]*BypassTokenData
+type GuestTokenStore struct {
+	tokens map[string]*GuestTokenData
 }
 
-type BypassTokenData struct {
+type GuestTokenData struct {
 	CreatedBy string
 	ExpiresAt time.Time
 	UsedAt    *time.Time
@@ -58,8 +58,8 @@ var sessions = &SessionStore{
 	sessions: make(map[string]*SessionData),
 }
 
-var bypassTokens = &BypassTokenStore{
-	tokens: make(map[string]*BypassTokenData),
+var guestTokens = &GuestTokenStore{
+	tokens: make(map[string]*GuestTokenData),
 }
 
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
@@ -70,29 +70,29 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Check for bypass token first (only if bypass links are enabled)
-		bypassToken := r.URL.Query().Get("bt")
-		if bypassToken != "" {
-			if !oauth2.OAuth2Config.AllowBypassLink {
-				utils.SendError(w, http.StatusUnauthorized, utils.FHE012, "access link is invalid", nil)
+		// Check for guest token first (only if guest links are enabled)
+		guestToken := r.URL.Query().Get("gt")
+		if guestToken != "" {
+			if !oauth2.OAuth2Config.AllowGuestLink {
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE012, "guest link is invalid", nil)
 				return
 			}
 
-			tokenData, exists := bypassTokens.tokens[bypassToken]
+			tokenData, exists := guestTokens.tokens[guestToken]
 			if !exists {
-				utils.SendError(w, http.StatusUnauthorized, utils.FHE012, "access link is invalid", nil)
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE012, "guest link is invalid", nil)
 				return
 			}
 
 			if tokenData.UsedAt != nil {
-				utils.SendError(w, http.StatusUnauthorized, utils.FHE010, "access link has already been used", nil)
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE010, "guest link has already been used", nil)
 				return
 			}
 
 			if time.Now().After(tokenData.ExpiresAt) {
 				// Clean up expired token
-				delete(bypassTokens.tokens, bypassToken)
-				utils.SendError(w, http.StatusUnauthorized, utils.FHE011, "access link has expired", nil)
+				delete(guestTokens.tokens, guestToken)
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE011, "guest link has expired", nil)
 				return
 			}
 
@@ -166,25 +166,25 @@ func GetSessionData(sessionID string) *SessionData {
 	return sessionData
 }
 
-func CreateBypassToken(createdByUserID string, validityDuration time.Duration) string {
+func CreateGuestToken(createdByUserID string, validityDuration time.Duration) string {
 	tokenID := generateSessionID()
-	bypassTokens.tokens[tokenID] = &BypassTokenData{
+	guestTokens.tokens[tokenID] = &GuestTokenData{
 		CreatedBy: createdByUserID,
 		ExpiresAt: time.Now().Add(validityDuration),
 		UsedAt:    nil,
 	}
 
 	// Clean up expired tokens
-	cleanupExpiredBypassTokens()
+	cleanupExpiredGuestTokens()
 
 	return tokenID
 }
 
-func cleanupExpiredBypassTokens() {
+func cleanupExpiredGuestTokens() {
 	now := time.Now()
-	for token, tokenData := range bypassTokens.tokens {
+	for token, tokenData := range guestTokens.tokens {
 		if now.After(tokenData.ExpiresAt) || tokenData.UsedAt != nil {
-			delete(bypassTokens.tokens, token)
+			delete(guestTokens.tokens, token)
 		}
 	}
 }
