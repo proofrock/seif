@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"seif/oauth2"
+	"seif/utils"
 	"time"
 
 	oauth2lib "golang.org/x/oauth2"
@@ -71,20 +72,35 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		// Check for bypass token first (only if bypass links are enabled)
 		bypassToken := r.URL.Query().Get("bt")
-		if bypassToken != "" && oauth2.OAuth2Config.AllowBypassLink {
-			tokenData, exists := bypassTokens.tokens[bypassToken]
-			if exists && time.Now().Before(tokenData.ExpiresAt) && tokenData.UsedAt == nil {
-				// Mark token as used (single use)
-				now := time.Now()
-				tokenData.UsedAt = &now
-				// Allow access without adding user to context
-				next.ServeHTTP(w, r)
+		if bypassToken != "" {
+			if !oauth2.OAuth2Config.AllowBypassLink {
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE012, "access link is invalid", nil)
 				return
 			}
-			// Clean up expired or used tokens
-			if exists {
-				delete(bypassTokens.tokens, bypassToken)
+
+			tokenData, exists := bypassTokens.tokens[bypassToken]
+			if !exists {
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE012, "access link is invalid", nil)
+				return
 			}
+
+			if tokenData.UsedAt != nil {
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE010, "access link has already been used", nil)
+				return
+			}
+
+			if time.Now().After(tokenData.ExpiresAt) {
+				// Clean up expired token
+				delete(bypassTokens.tokens, bypassToken)
+				utils.SendError(w, http.StatusUnauthorized, utils.FHE011, "access link has expired", nil)
+				return
+			}
+
+			// Valid token - mark as used and allow access
+			now := time.Now()
+			tokenData.UsedAt = &now
+			next.ServeHTTP(w, r)
+			return
 		}
 
 		// Check for session cookie
